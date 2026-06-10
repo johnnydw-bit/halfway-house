@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#1a1a2e">
+  <meta name="theme-color" content="#2c2757">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Kitchen — Bramley Halfway House</title>
   <style>
@@ -13,8 +13,8 @@
       --bg: #0f1117;
       --surface: #1c1f2b;
       --surface2: #252836;
-      --green: #2ecc71;
-      --green-dark: #1a5c2a;
+      --brand: #2c2757;
+      --brand-light: #4a449e;
       --amber: #f39c12;
       --red: #e74c3c;
       --text: #f0f0f0;
@@ -33,13 +33,15 @@
     /* ── Header ── */
     header {
       background: var(--surface);
-      padding: 14px 18px;
+      padding: 10px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 3px solid var(--brand);
       position: sticky; top: 0; z-index: 10;
     }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    header img { height: 36px; width: auto; background: white; border-radius: 4px; padding: 2px; }
     header h1 { font-size: 17px; font-weight: 700; }
     header p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
@@ -99,7 +101,7 @@
     }
 
     .card-header {
-      background: var(--green-dark);
+      background: var(--brand);
       padding: 10px 14px;
       display: flex;
       justify-content: space-between;
@@ -174,9 +176,12 @@
 <body style="display:flex;flex-direction:column;min-height:100dvh">
 
 <header>
-  <div>
-    <h1>Kitchen</h1>
-    <p>Bramley Halfway House</p>
+  <div class="header-left">
+    <img src="/logo.jpg" alt="Bramley GC">
+    <div>
+      <h1>Kitchen</h1>
+      <p>Bramley Halfway House</p>
+    </div>
   </div>
   <div id="bt-status" onclick="connectBluetooth()">
     <span id="bt-dot"></span>

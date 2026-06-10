@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#1a5c2a">
+  <meta name="theme-color" content="#2c2757">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Halfway House — Bramley GC</title>
@@ -12,9 +12,8 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --green-dark: #1a5c2a;
-      --green-mid: #2d8a47;
-      --green-light: #e8f5ec;
+      --brand: #2c2757;
+      --brand-mid: #3d3878;
       --cream: #f7f3ea;
       --text: #1a1a1a;
       --muted: #666;
@@ -33,65 +32,65 @@
 
     /* ── Header ── */
     header {
-      background: var(--green-dark);
-      color: var(--white);
-      padding: 16px 20px 12px;
+      background: var(--white);
+      border-bottom: 3px solid var(--brand);
+      padding: 10px 16px;
       position: sticky;
       top: 0;
       z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
-    header p  { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+    header img { height: 42px; width: auto; }
+    header h1 { font-size: 18px; font-weight: 700; color: var(--brand); letter-spacing: 0.2px; }
+    header p  { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
     /* ── Screens ── */
     .screen { display: none; flex-direction: column; min-height: 100dvh; }
     .screen.active { display: flex; }
 
     /* ── Menu screen ── */
-    #menu-screen { padding-bottom: 90px; }
+    #menu-screen { padding-bottom: 80px; }
 
-    .category { margin-top: 20px; padding: 0 16px; }
+    .category { margin-top: 12px; padding: 0 12px; }
     .category-name {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      color: var(--green-dark);
-      margin-bottom: 10px;
-      padding-bottom: 6px;
-      border-bottom: 2px solid var(--green-mid);
+      color: var(--brand);
+      margin-bottom: 6px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid var(--brand-mid);
     }
+
+    .items-grid { display: flex; flex-direction: column; }
 
     .item {
       display: flex;
       align-items: center;
-      background: var(--white);
-      border-radius: 10px;
-      padding: 14px 14px;
-      margin-bottom: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
     }
-    .item-info { flex: 1; }
-    .item-name  { font-size: 16px; font-weight: 500; }
-    .item-price { font-size: 14px; color: var(--muted); margin-top: 2px; }
+    .item:last-child { border-bottom: none; }
+    .item-name  { flex: 1; font-size: 14px; }
+    .item-price { font-size: 13px; color: var(--muted); white-space: nowrap; }
 
-    .qty-controls { display: flex; align-items: center; gap: 10px; }
+    .qty-controls { display: flex; align-items: center; gap: 6px; }
     .qty-btn {
-      width: 34px; height: 34px;
+      width: 28px; height: 28px;
       border-radius: 50%;
       border: none;
-      font-size: 20px;
+      font-size: 18px;
       line-height: 1;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: transform 0.1s;
     }
-    .qty-btn:active { transform: scale(0.9); }
     .qty-btn.minus { background: #e8e8e8; color: var(--text); }
-    .qty-btn.plus  { background: var(--green-dark); color: var(--white); }
-    .qty-display {
-      font-size: 17px; font-weight: 600; min-width: 22px; text-align: center;
-    }
+    .qty-btn.plus  { background: var(--brand); color: var(--white); }
+    .qty-display { font-size: 14px; font-weight: 600; min-width: 16px; text-align: center; }
 
     /* ── Sticky bar ── */
     #order-bar {
@@ -107,7 +106,7 @@
     #order-bar.visible { transform: translateY(0); }
     #order-bar-btn {
       width: 100%;
-      background: var(--green-dark);
+      background: var(--brand);
       color: var(--white);
       border: none;
       border-radius: 12px;
@@ -123,7 +122,7 @@
     /* ── Order screen ── */
     #order-screen { background: var(--cream); }
     .order-header {
-      background: var(--green-dark);
+      background: var(--brand);
       color: var(--white);
       padding: 16px 20px;
       display: flex;
@@ -184,11 +183,11 @@
       outline: none;
       transition: border-color 0.15s;
     }
-    .field-group input:focus { border-color: var(--green-mid); }
+    .field-group input:focus { border-color: var(--brand-mid); }
 
     .place-order-btn {
       width: 100%;
-      background: var(--green-dark);
+      background: var(--brand);
       color: var(--white);
       border: none;
       border-radius: 12px;
@@ -208,9 +207,10 @@
       align-items: center;
       text-align: center;
       padding: 40px 24px;
-      background: var(--green-dark);
+      background: var(--brand);
       color: var(--white);
     }
+
     .confirm-icon { font-size: 72px; margin-bottom: 20px; }
     #confirm-screen h2 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
     #confirm-screen p  { font-size: 16px; opacity: 0.8; margin-bottom: 4px; }
@@ -227,7 +227,7 @@
     .confirm-summary div:last-child { margin: 0; }
     .again-btn {
       background: var(--white);
-      color: var(--green-dark);
+      color: var(--brand);
       border: none;
       border-radius: 12px;
       padding: 15px 36px;
@@ -255,8 +255,11 @@
 <!-- ── MENU SCREEN ── -->
 <div id="menu-screen" class="screen active">
   <header>
-    <h1>Halfway House</h1>
-    <p>Bramley Golf Club</p>
+    <img src="/logo.jpg" alt="Bramley Golf Club">
+    <div>
+      <h1>Halfway House</h1>
+      <p>Bramley Golf Club</p>
+    </div>
   </header>
   <div id="menu-content">
     <div style="padding:40px;text-align:center;color:#999">Loading menu…</div>
@@ -322,19 +325,19 @@
     el.innerHTML = menu.map(cat => `
       <div class="category">
         <div class="category-name">${cat.name}</div>
-        ${cat.items.map(item => `
-          <div class="item">
-            <div class="item-info">
-              <div class="item-name">${item.name}</div>
-              <div class="item-price">£${item.price.toFixed(2)}</div>
+        <div class="items-grid">
+          ${cat.items.map(item => `
+            <div class="item">
+              <span class="item-name">${item.name}</span>
+              <span class="item-price">£${item.price.toFixed(2)}</span>
+              <div class="qty-controls">
+                <button class="qty-btn minus" onclick="changeQty('${item.id}', -1)">−</button>
+                <span class="qty-display" id="qty-${item.id}">0</span>
+                <button class="qty-btn plus" onclick="changeQty('${item.id}', +1)">+</button>
+              </div>
             </div>
-            <div class="qty-controls">
-              <button class="qty-btn minus" onclick="changeQty('${item.id}', -1)">−</button>
-              <span class="qty-display" id="qty-${item.id}">0</span>
-              <button class="qty-btn plus" onclick="changeQty('${item.id}', +1)">+</button>
-            </div>
-          </div>
-        `).join('')}
+          `).join('')}
+        </div>
       </div>
     `).join('');
   }
