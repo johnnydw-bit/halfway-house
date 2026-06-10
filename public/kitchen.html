@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Kitchen — Bramley Halfway House</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1c1f2b;
+      --surface2: #252836;
+      --green: #2ecc71;
+      --green-dark: #1a5c2a;
+      --amber: #f39c12;
+      --red: #e74c3c;
+      --text: #f0f0f0;
+      --muted: #8a8fa8;
+      --border: #2e3347;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { font-size: 17px; font-weight: 700; }
+    header p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    #bt-status {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    #bt-status:hover { border-color: var(--muted); }
+    #bt-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    #bt-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    #bt-dot.connecting { background: var(--amber); animation: pulse 1s infinite; }
+
+    @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.3 } }
+
+    /* ── Empty state ── */
+    #empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      flex: 1; padding: 40px;
+      text-align: center;
+    }
+    #empty-state .icon { font-size: 52px; margin-bottom: 16px; opacity: 0.4; }
+    #empty-state h2 { font-size: 18px; color: var(--muted); font-weight: 500; }
+    #empty-state p  { font-size: 13px; color: var(--muted); margin-top: 6px; opacity: 0.7; }
+
+    /* ── Order list ── */
+    #orders-container {
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #orders-container.has-orders { display: flex; }
+
+    /* ── Order card ── */
+    .order-card {
+      background: var(--surface);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-12px); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
+    }
+
+    .card-header {
+      background: var(--green-dark);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .card-header .order-name { font-size: 16px; font-weight: 700; }
+    .card-header .order-time { font-size: 12px; opacity: 0.75; }
+
+    .card-meta {
+      padding: 8px 14px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-items { padding: 10px 14px; }
+    .card-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 15px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-item:last-child { border-bottom: none; }
+    .card-item .item-name { color: var(--text); }
+    .card-item .item-price { color: var(--muted); font-size: 14px; }
+
+    .card-total {
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 16px;
+      border-top: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+    }
+    .btn {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:active { opacity: 0.75; }
+    .btn-print {
+      background: var(--green);
+      color: #000;
+    }
+    .btn-print:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    .btn-dismiss {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    /* ── BT not supported banner ── */
+    #bt-unsupported {
+      margin: 12px 14px 0;
+      background: #2a1f0a;
+      border: 1px solid var(--amber);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--amber);
+      display: none;
+    }
+  </style>
+</head>
+<body style="display:flex;flex-direction:column;min-height:100dvh">
+
+<header>
+  <div>
+    <h1>Kitchen</h1>
+    <p>Bramley Halfway House</p>
+  </div>
+  <div id="bt-status" onclick="connectBluetooth()">
+    <span id="bt-dot"></span>
+    <span id="bt-label">Connect printer</span>
+  </div>
+</header>
+
+<div id="bt-unsupported">
+  ⚠️ Web Bluetooth is not available in this browser. Orders will display on screen only.
+  Use Chrome on Android for Bluetooth printing.
+</div>
+
+<div id="empty-state">
+  <div class="icon">🍽️</div>
+  <h2>Waiting for orders…</h2>
+  <p>Orders will appear here as golfers place them.</p>
+</div>
+
+<div id="orders-container"></div>
+
+<audio id="beep-audio" preload="auto">
+  <!-- inline beep generated by Web Audio API — no file needed -->
+</audio>
+
+<script>
+  // ── BroadcastChannel listener ──
+  const channel = new BroadcastChannel('halfway-orders');
+  channel.onmessage = (e) => receiveOrder(e.data);
+
+  // ── Persist orders across reloads ──
+  const STORAGE_KEY = 'halfway_orders';
+  let orders = [];
+  try { orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
+
+  function saveOrders() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  }
+
+  // ── Render persisted orders on load ──
+  window.addEventListener('DOMContentLoaded', () => {
+    orders.forEach(o => renderOrderCard(o, false));
+    updateEmpty();
+
+    if (!navigator.bluetooth) {
+      document.getElementById('bt-unsupported').style.display = 'block';
+      document.getElementById('bt-status').style.display = 'none';
+    }
+  });
+
+  // ── Receive new order ──
+  function receiveOrder(order) {
+    orders.unshift(order);
+    saveOrders();
+    renderOrderCard(order, true);
+    updateEmpty();
+    playBeep();
+  }
+
+  // ── Render a card ──
+  function renderOrderCard(order, prepend) {
+    const container = document.getElementById('orders-container');
+    const time = new Date(order.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const canPrint = !!navigator.bluetooth;
+
+    const card = document.createElement('div');
+    card.className = 'order-card';
+    card.id = 'order-' + order.id;
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="order-name">${esc(order.name)}</span>
+        <span class="order-time">${time}</span>
+      </div>
+      ${order.membership ? `<div class="card-meta">Member #${esc(order.membership)}</div>` : ''}
+      <div class="card-items">
+        ${order.items.map(i => `
+          <div class="card-item">
+            <span class="item-name">${i.qty}× ${esc(i.name)}</span>
+            <span class="item-price">£${(i.qty * i.price).toFixed(2)}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="card-total">
+        <span>Total</span>
+        <span>£${order.total.toFixed(2)}</span>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-print" ${canPrint ? '' : 'disabled'} onclick="printOrder('${order.id}', this)">
+          ${canPrint ? '🖨️ Print' : '🖨️ No printer'}
+        </button>
+        <button class="btn btn-dismiss" onclick="dismissOrder('${order.id}')">Dismiss</button>
+      </div>
+    `;
+
+    if (prepend && container.firstChild) {
+      container.insertBefore(card, container.firstChild);
+    } else {
+      container.appendChild(card);
+    }
+  }
+
+  function updateEmpty() {
+    const hasOrders = orders.length > 0;
+    document.getElementById('empty-state').style.display = hasOrders ? 'none' : 'flex';
+    const c = document.getElementById('orders-container');
+    if (hasOrders) c.classList.add('has-orders');
+    else c.classList.remove('has-orders');
+  }
+
+  function dismissOrder(id) {
+    orders = orders.filter(o => o.id !== id);
+    saveOrders();
+    const el = document.getElementById('order-' + id);
+    if (el) {
+      el.style.transition = 'opacity 0.2s, transform 0.2s';
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(30px)';
+      setTimeout(() => { el.remove(); updateEmpty(); }, 220);
+    }
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Beep ──
+  let audioCtx = null;
+  function playBeep() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+    } catch {}
+  }
+
+  // ── Bluetooth printing ──
+  let btCharacteristic = null;
+
+  // Common BLE thermal printer service/characteristic pairs to try
+  const BT_PROFILES = [
+    // Generic BLE thermal (most common cheap printers)
+    { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb' },
+    // Peripage / Cat printer style
+    { service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f' },
+    // Serial BLE (Bluetooth SPP over BLE bridge)
+    { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3' },
+  ];
+
+  async function connectBluetooth() {
+    if (!navigator.bluetooth) return;
+    const dot = document.getElementById('bt-dot');
+    const label = document.getElementById('bt-label');
+
+    dot.className = 'connecting';
+    label.textContent = 'Connecting…';
+
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BT_PROFILES.map(p => p.service)
+      });
+
+      const server = await device.gatt.connect();
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+
+      // Try each profile until one works
+      let connected = false;
+      for (const profile of BT_PROFILES) {
+        try {
+          const service = await server.getPrimaryService(profile.service);
+          btCharacteristic = await service.getCharacteristic(profile.char);
+          connected = true;
+          break;
+        } catch {}
+      }
+
+      if (!connected) throw new Error('No compatible print service found on this device.');
+
+      dot.className = 'connected';
+      label.textContent = device.name || 'Printer connected';
+
+    } catch (err) {
+      dot.className = '';
+      label.textContent = 'Connect printer';
+      if (err.name !== 'NotFoundError') { // user cancelled — don't alert
+        alert('Bluetooth error: ' + err.message);
+      }
+    }
+  }
+
+  function onDisconnected() {
+    btCharacteristic = null;
+    document.getElementById('bt-dot').className = '';
+    document.getElementById('bt-label').textContent = 'Connect printer';
+  }
+
+  async function printOrder(orderId, btn) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order || !btCharacteristic) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Printing…';
+
+    try {
+      const bytes = buildEscPos(order);
+      // Write in 20-byte chunks (BLE MTU limit)
+      for (let i = 0; i < bytes.length; i += 20) {
+        await btCharacteristic.writeValue(bytes.slice(i, i + 20));
+      }
+      btn.textContent = '✓ Printed';
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = '🖨️ Print';
+      alert('Print failed: ' + err.message);
+    }
+  }
+
+  // ── ESC/POS encoder ──
+  function buildEscPos(order) {
+    const W = 32; // characters per line (58mm printer)
+    const b = [];
+    const push = (...bytes) => b.push(...bytes);
+    const text = (s) => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
+    const line = (s = '') => { text(s); push(0x0a); };
+    const hr = (ch = '=') => line(ch.repeat(W));
+    const right = (left, right) => {
+      const gap = W - left.length - right.length;
+      line(left + ' '.repeat(Math.max(1, gap)) + right);
+    };
+
+    // Init
+    push(0x1b, 0x40);
+    // Center
+    push(0x1b, 0x61, 0x01);
+    // Bold on, double height
+    push(0x1b, 0x45, 0x01, 0x1b, 0x21, 0x10);
+    line('HALFWAY HOUSE');
+    push(0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00);
+    line('Bramley Golf Club');
+    // Left align
+    push(0x1b, 0x61, 0x00);
+    hr('=');
+    line('Name:   ' + order.name.substring(0, 22));
+    if (order.membership) line('Member: ' + order.membership);
+    const t = new Date(order.timestamp);
+    line('Time:   ' + t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+    hr('-');
+    for (const item of order.items) {
+      right(`${item.qty}x ${item.name}`.substring(0, 24), `£${(item.qty * item.price).toFixed(2)}`);
+    }
+    hr('-');
+    push(0x1b, 0x45, 0x01);
+    right('TOTAL', `£${order.total.toFixed(2)}`);
+    push(0x1b, 0x45, 0x00);
+    hr('=');
+    line(); line(); line();
+    // Partial cut
+    push(0x1d, 0x56, 0x01);
+
+    return new Uint8Array(b);
+  }
+</script>
+</body>
+</html>

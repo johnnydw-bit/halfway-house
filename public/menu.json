@@ -1,0 +1,40 @@
+{
+  "categories": [
+    {
+      "name": "Hot Food",
+      "items": [
+        { "id": "hf1", "name": "Hot Dog", "price": 3.50 },
+        { "id": "hf2", "name": "Bacon Roll", "price": 4.00 },
+        { "id": "hf3", "name": "Sausage Roll", "price": 2.50 },
+        { "id": "hf4", "name": "Toasted Sandwich", "price": 4.50 }
+      ]
+    },
+    {
+      "name": "Cold Food",
+      "items": [
+        { "id": "cf1", "name": "Filled Roll", "price": 3.50 },
+        { "id": "cf2", "name": "Crisps", "price": 1.00 },
+        { "id": "cf3", "name": "Chocolate Bar", "price": 1.20 },
+        { "id": "cf4", "name": "Cereal Bar", "price": 1.50 }
+      ]
+    },
+    {
+      "name": "Hot Drinks",
+      "items": [
+        { "id": "hd1", "name": "Tea", "price": 1.80 },
+        { "id": "hd2", "name": "Coffee", "price": 2.20 },
+        { "id": "hd3", "name": "Hot Chocolate", "price": 2.50 }
+      ]
+    },
+    {
+      "name": "Cold Drinks",
+      "items": [
+        { "id": "cd1", "name": "Water (500ml)", "price": 1.50 },
+        { "id": "cd2", "name": "Soft Drink (can)", "price": 1.80 },
+        { "id": "cd3", "name": "Lager (can)", "price": 3.20 },
+        { "id": "cd4", "name": "Cider (can)", "price": 3.50 },
+        { "id": "cd5", "name": "Wine (small bottle)", "price": 5.00 }
+      ]
+    }
+  ]
+}

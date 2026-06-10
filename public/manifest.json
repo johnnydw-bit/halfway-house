@@ -1,0 +1,9 @@
+{
+  "name": "Bramley Halfway House",
+  "short_name": "Halfway House",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a5c2a",
+  "theme_color": "#1a5c2a",
+  "description": "Order food and drinks at the Bramley Golf Club halfway house"
+}

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a5c2a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Halfway House — Bramley GC</title>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green-dark: #1a5c2a;
+      --green-mid: #2d8a47;
+      --green-light: #e8f5ec;
+      --cream: #f7f3ea;
+      --text: #1a1a1a;
+      --muted: #666;
+      --border: #ddd;
+      --white: #fff;
+      --red: #c0392b;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--green-dark);
+      color: var(--white);
+      padding: 16px 20px 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
+    header p  { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+
+    /* ── Screens ── */
+    .screen { display: none; flex-direction: column; min-height: 100dvh; }
+    .screen.active { display: flex; }
+
+    /* ── Menu screen ── */
+    #menu-screen { padding-bottom: 90px; }
+
+    .category { margin-top: 20px; padding: 0 16px; }
+    .category-name {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--green-dark);
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--green-mid);
+    }
+
+    .item {
+      display: flex;
+      align-items: center;
+      background: var(--white);
+      border-radius: 10px;
+      padding: 14px 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    }
+    .item-info { flex: 1; }
+    .item-name  { font-size: 16px; font-weight: 500; }
+    .item-price { font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+    .qty-controls { display: flex; align-items: center; gap: 10px; }
+    .qty-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: none;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s;
+    }
+    .qty-btn:active { transform: scale(0.9); }
+    .qty-btn.minus { background: #e8e8e8; color: var(--text); }
+    .qty-btn.plus  { background: var(--green-dark); color: var(--white); }
+    .qty-display {
+      font-size: 17px; font-weight: 600; min-width: 22px; text-align: center;
+    }
+
+    /* ── Sticky bar ── */
+    #order-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 12px 16px;
+      background: var(--white);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.12);
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+      z-index: 20;
+    }
+    #order-bar.visible { transform: translateY(0); }
+    #order-bar-btn {
+      width: 100%;
+      background: var(--green-dark);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* ── Order screen ── */
+    #order-screen { background: var(--cream); }
+    .order-header {
+      background: var(--green-dark);
+      color: var(--white);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .back-btn {
+      background: none; border: none;
+      color: var(--white); font-size: 24px;
+      cursor: pointer; padding: 0;
+      line-height: 1;
+    }
+    .order-header h2 { font-size: 18px; font-weight: 700; }
+
+    .order-body { padding: 20px 16px; flex: 1; }
+
+    .order-items-list { margin-bottom: 20px; }
+    .order-item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--white);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .order-item-row .name { font-size: 15px; }
+    .order-item-row .qty-price { font-size: 14px; color: var(--muted); }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 14px;
+      font-weight: 700;
+      font-size: 16px;
+      border-top: 2px solid var(--border);
+      margin-top: 4px;
+    }
+
+    .field-group { margin-bottom: 16px; }
+    .field-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .field-group input {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field-group input:focus { border-color: var(--green-mid); }
+
+    .place-order-btn {
+      width: 100%;
+      background: var(--green-dark);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.15s;
+    }
+    .place-order-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .place-order-btn:not(:disabled):active { opacity: 0.85; }
+
+    /* ── Confirmation screen ── */
+    #confirm-screen {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px 24px;
+      background: var(--green-dark);
+      color: var(--white);
+    }
+    .confirm-icon { font-size: 72px; margin-bottom: 20px; }
+    #confirm-screen h2 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    #confirm-screen p  { font-size: 16px; opacity: 0.8; margin-bottom: 4px; }
+    .confirm-summary {
+      background: rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 20px 0 28px;
+      text-align: left;
+      width: 100%;
+      max-width: 340px;
+    }
+    .confirm-summary div { font-size: 14px; opacity: 0.9; margin-bottom: 4px; }
+    .confirm-summary div:last-child { margin: 0; }
+    .again-btn {
+      background: var(--white);
+      color: var(--green-dark);
+      border: none;
+      border-radius: 12px;
+      padding: 15px 36px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ── MENU SCREEN ── -->
+<div id="menu-screen" class="screen active">
+  <header>
+    <h1>Halfway House</h1>
+    <p>Bramley Golf Club</p>
+  </header>
+  <div id="menu-content">
+    <div style="padding:40px;text-align:center;color:#999">Loading menu…</div>
+  </div>
+  <div id="order-bar">
+    <button id="order-bar-btn" onclick="showOrderScreen()">
+      <span id="bar-count"></span>
+      <span id="bar-total"></span>
+    </button>
+  </div>
+</div>
+
+<!-- ── ORDER SCREEN ── -->
+<div id="order-screen" class="screen">
+  <div class="order-header">
+    <button class="back-btn" onclick="showMenuScreen()">&#8592;</button>
+    <h2>Your Order</h2>
+  </div>
+  <div class="order-body">
+    <div class="order-items-list" id="order-items-list"></div>
+    <div class="total-row">
+      <span>Total</span>
+      <span id="order-total-display"></span>
+    </div>
+    <br>
+    <div class="field-group">
+      <label>Your Name <span style="color:#c0392b">*</span></label>
+      <input type="text" id="name-input" placeholder="e.g. John Smith" autocomplete="name">
+    </div>
+    <div class="field-group">
+      <label>Membership Number <span style="color:#999;font-weight:400">(optional)</span></label>
+      <input type="text" id="membership-input" placeholder="e.g. 1234" inputmode="numeric">
+    </div>
+    <button class="place-order-btn" id="place-order-btn" onclick="placeOrder()">Place Order</button>
+  </div>
+</div>
+
+<!-- ── CONFIRMATION SCREEN ── -->
+<div id="confirm-screen" class="screen">
+  <div class="confirm-icon">&#10003;</div>
+  <h2>Order Placed!</h2>
+  <p id="confirm-name"></p>
+  <div class="confirm-summary" id="confirm-summary"></div>
+  <p style="font-size:13px;opacity:0.6;margin-bottom:20px">Head to the halfway house — your order is on its way.</p>
+  <button class="again-btn" onclick="resetToMenu()">Order Another Round</button>
+</div>
+
+<script>
+  const channel = new BroadcastChannel('halfway-orders');
+  let menu = [];
+  let basket = {}; // id → qty
+
+  // ── Load menu ──
+  fetch('/menu.json')
+    .then(r => r.json())
+    .then(data => {
+      menu = data.categories;
+      renderMenu();
+    });
+
+  function renderMenu() {
+    const el = document.getElementById('menu-content');
+    el.innerHTML = menu.map(cat => `
+      <div class="category">
+        <div class="category-name">${cat.name}</div>
+        ${cat.items.map(item => `
+          <div class="item">
+            <div class="item-info">
+              <div class="item-name">${item.name}</div>
+              <div class="item-price">£${item.price.toFixed(2)}</div>
+            </div>
+            <div class="qty-controls">
+              <button class="qty-btn minus" onclick="changeQty('${item.id}', -1)">−</button>
+              <span class="qty-display" id="qty-${item.id}">0</span>
+              <button class="qty-btn plus" onclick="changeQty('${item.id}', +1)">+</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+
+  function changeQty(id, delta) {
+    basket[id] = Math.max(0, (basket[id] || 0) + delta);
+    if (basket[id] === 0) delete basket[id];
+    const el = document.getElementById('qty-' + id);
+    if (el) el.textContent = basket[id] || 0;
+    updateBar();
+  }
+
+  function updateBar() {
+    const items = basketItems();
+    const total = items.reduce((s, i) => s + i.qty * i.price, 0);
+    const count = items.reduce((s, i) => s + i.qty, 0);
+    const bar = document.getElementById('order-bar');
+    if (count === 0) {
+      bar.classList.remove('visible');
+    } else {
+      bar.classList.add('visible');
+      document.getElementById('bar-count').textContent = count === 1 ? '1 item' : `${count} items`;
+      document.getElementById('bar-total').textContent = `£${total.toFixed(2)} →`;
+    }
+  }
+
+  function basketItems() {
+    return Object.entries(basket).map(([id, qty]) => {
+      for (const cat of menu) {
+        const item = cat.items.find(i => i.id === id);
+        if (item) return { ...item, qty };
+      }
+    }).filter(Boolean);
+  }
+
+  // ── Order screen ──
+  function showOrderScreen() {
+    const items = basketItems();
+    const total = items.reduce((s, i) => s + i.qty * i.price, 0);
+
+    document.getElementById('order-items-list').innerHTML = items.map(item => `
+      <div class="order-item-row">
+        <span class="name">${item.qty}× ${item.name}</span>
+        <span class="qty-price">£${(item.qty * item.price).toFixed(2)}</span>
+      </div>
+    `).join('');
+    document.getElementById('order-total-display').textContent = `£${total.toFixed(2)}`;
+
+    showScreen('order-screen');
+  }
+
+  function showMenuScreen() { showScreen('menu-screen'); }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  // ── Place order ──
+  function placeOrder() {
+    const name = document.getElementById('name-input').value.trim();
+    const membership = document.getElementById('membership-input').value.trim();
+    if (!name) {
+      document.getElementById('name-input').focus();
+      document.getElementById('name-input').style.borderColor = '#c0392b';
+      return;
+    }
+
+    const items = basketItems();
+    const total = items.reduce((s, i) => s + i.qty * i.price, 0);
+    const order = {
+      id: Date.now().toString(36),
+      name,
+      membership: membership || null,
+      items,
+      total,
+      timestamp: new Date().toISOString()
+    };
+
+    const btn = document.getElementById('place-order-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Placing order…';
+
+    // BroadcastChannel relay to kitchen tab
+    channel.postMessage(order);
+
+    setTimeout(() => {
+      showConfirm(order);
+    }, 600);
+  }
+
+  function showConfirm(order) {
+    document.getElementById('confirm-name').textContent = `For ${order.name}${order.membership ? ' · #' + order.membership : ''}`;
+    document.getElementById('confirm-summary').innerHTML =
+      order.items.map(i => `<div>${i.qty}× ${i.name} — £${(i.qty * i.price).toFixed(2)}</div>`).join('') +
+      `<div style="margin-top:8px;font-weight:700">Total: £${order.total.toFixed(2)}</div>`;
+    showScreen('confirm-screen');
+  }
+
+  function resetToMenu() {
+    basket = {};
+    document.getElementById('name-input').value = '';
+    document.getElementById('membership-input').value = '';
+    const btn = document.getElementById('place-order-btn');
+    btn.disabled = false;
+    btn.textContent = 'Place Order';
+    document.getElementById('name-input').style.borderColor = '';
+    renderMenu();
+    updateBar();
+    showScreen('menu-screen');
+  }
+
+  // Fix: re-enable name input border on input
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('name-input').addEventListener('input', function() {
+      this.style.borderColor = '';
+    });
+  });
+</script>
+</body>
+</html>
