@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menu Admin — Bramley Halfway House</title>
+  <!-- SheetJS for parsing .xlsx and .csv -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    p.sub { color: #666; font-size: 14px; margin-bottom: 28px; }
+
+    .step { margin-bottom: 28px; }
+    .step h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #1a5c2a; margin-bottom: 10px; }
+
+    a.download-link {
+      display: inline-block;
+      background: #1a5c2a; color: #fff;
+      padding: 10px 18px; border-radius: 8px;
+      text-decoration: none; font-size: 14px; font-weight: 600;
+    }
+
+    .upload-area {
+      border: 2px dashed #ccc; border-radius: 10px;
+      padding: 28px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .upload-area:hover, .upload-area.drag { border-color: #1a5c2a; }
+    .upload-area p { color: #666; font-size: 14px; margin: 0; }
+    #file-input { display: none; }
+
+    #error-box {
+      display: none;
+      background: #fdecea; border: 1px solid #e74c3c;
+      border-radius: 8px; padding: 12px 16px;
+      color: #c0392b; font-size: 14px; margin-top: 12px;
+    }
+
+    #preview { display: none; margin-top: 20px; }
+    #preview h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #1a5c2a; margin-bottom: 10px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { background: #f0f0f0; text-align: left; padding: 8px 10px; font-weight: 700; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; }
+    tr.cat-row td { background: #e8f5ec; font-weight: 700; font-size: 13px; color: #1a5c2a; padding: 5px 10px; }
+
+    .actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+    button.primary {
+      background: #1a5c2a; color: #fff;
+      border: none; border-radius: 8px;
+      padding: 11px 22px; font-size: 15px; font-weight: 700;
+      cursor: pointer;
+    }
+    button.primary:hover { background: #2d8a47; }
+    .note { font-size: 13px; color: #888; }
+  </style>
+</head>
+<body>
+
+<h1>Halfway House Menu Admin</h1>
+<p class="sub">Upload a spreadsheet to update the menu. Changes take effect after committing <code>menu.json</code> to GitHub.</p>
+
+<div class="step">
+  <h2>Step 1 — Download the template</h2>
+  <a class="download-link" href="/menu-template.csv" download="halfway-house-menu.csv">⬇ Download menu-template.csv</a>
+  <p style="font-size:13px;color:#888;margin-top:8px">Edit in Excel or Google Sheets. Keep the three columns: Category, Name, Price.<br>Add or remove rows freely. Don't change the header row.</p>
+</div>
+
+<div class="step">
+  <h2>Step 2 — Upload your edited file</h2>
+  <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <p>Click to choose file, or drag and drop here</p>
+    <p style="margin-top:6px;font-size:12px">.csv or .xlsx accepted</p>
+  </div>
+  <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+  <div id="error-box"></div>
+</div>
+
+<div id="preview">
+  <h2>Step 3 — Check the preview, then download</h2>
+  <table id="preview-table"></table>
+  <div class="actions">
+    <button class="primary" onclick="downloadJson()">⬇ Download menu.json</button>
+    <span class="note">Commit this file to GitHub to go live.</span>
+  </div>
+</div>
+
+<script>
+  let parsedMenu = null;
+
+  // ── Drag and drop ──
+  const zone = document.getElementById('drop-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    handleFile(e.dataTransfer.files[0]);
+  });
+  document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+
+  // ── Parse file ──
+  function handleFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        parseRows(rows);
+      } catch (err) {
+        showError('Could not read file: ' + err.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  }
+
+  function parseRows(rows) {
+    hideError();
+    // Find header row (first row containing "category" and "name")
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 5); i++) {
+      const lower = rows[i].map(c => String(c).toLowerCase());
+      if (lower.includes('category') && lower.includes('name')) { headerIdx = i; break; }
+    }
+    if (headerIdx === -1) return showError('Could not find a header row with columns "Category", "Name", and "Price".');
+
+    const headers = rows[headerIdx].map(c => String(c).toLowerCase().trim());
+    const catIdx   = headers.indexOf('category');
+    const nameIdx  = headers.indexOf('name');
+    const priceIdx = headers.indexOf('price');
+    if (catIdx === -1 || nameIdx === -1 || priceIdx === -1)
+      return showError('Header row must contain columns: Category, Name, Price.');
+
+    const categoryMap = new Map();
+    const errors = [];
+
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      const cat   = String(row[catIdx]  || '').trim();
+      const name  = String(row[nameIdx] || '').trim();
+      const raw   = String(row[priceIdx]|| '').trim().replace(/[£$,]/g, '');
+      const price = parseFloat(raw);
+
+      if (!cat && !name) continue; // blank row — skip
+      if (!cat)   { errors.push(`Row ${i + 1}: missing Category`); continue; }
+      if (!name)  { errors.push(`Row ${i + 1}: missing Name`); continue; }
+      if (isNaN(price) || price < 0) { errors.push(`Row ${i + 1}: invalid Price "${row[priceIdx]}"`); continue; }
+
+      if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+      categoryMap.get(cat).push({ id: slugId(cat, name), name, price: Math.round(price * 100) / 100 });
+    }
+
+    if (errors.length) return showError('Errors found:\n• ' + errors.join('\n• '));
+    if (categoryMap.size === 0) return showError('No items found. Check the file has data below the header row.');
+
+    parsedMenu = { categories: Array.from(categoryMap, ([name, items]) => ({ name, items })) };
+    renderPreview(parsedMenu);
+  }
+
+  function slugId(cat, name) {
+    return (cat.substring(0, 2) + name).toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 8)
+      + Math.random().toString(36).substring(2, 5);
+  }
+
+  // ── Preview table ──
+  function renderPreview(menu) {
+    const table = document.getElementById('preview-table');
+    let html = '<tr><th>Category</th><th>Name</th><th>Price</th></tr>';
+    for (const cat of menu.categories) {
+      html += `<tr class="cat-row"><td colspan="3">${esc(cat.name)} (${cat.items.length} items)</td></tr>`;
+      for (const item of cat.items) {
+        html += `<tr><td></td><td>${esc(item.name)}</td><td>£${item.price.toFixed(2)}</td></tr>`;
+      }
+    }
+    table.innerHTML = html;
+    document.getElementById('preview').style.display = 'block';
+  }
+
+  // ── Download ──
+  function downloadJson() {
+    if (!parsedMenu) return;
+    const blob = new Blob([JSON.stringify(parsedMenu, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'menu.json';
+    a.click();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.style.display = 'block';
+    el.style.whiteSpace = 'pre-line';
+    el.textContent = msg;
+    document.getElementById('preview').style.display = 'none';
+  }
+  function hideError() { document.getElementById('error-box').style.display = 'none'; }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
