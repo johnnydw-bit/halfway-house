@@ -152,15 +152,6 @@
       transition: opacity 0.15s;
     }
     .btn:active { opacity: 0.75; }
-    .btn-print {
-      background: var(--green);
-      color: #000;
-    }
-    .btn-print:disabled {
-      background: var(--muted);
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
     .btn-dismiss {
       background: var(--surface2);
       color: var(--muted);
@@ -236,19 +227,19 @@
   });
 
   // ── Receive new order ──
-  function receiveOrder(order) {
+  async function receiveOrder(order) {
     orders.unshift(order);
     saveOrders();
     renderOrderCard(order, true);
     updateEmpty();
     playBeep();
+    await autoPrint(order);
   }
 
   // ── Render a card ──
   function renderOrderCard(order, prepend) {
     const container = document.getElementById('orders-container');
     const time = new Date(order.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    const canPrint = !!navigator.bluetooth;
 
     const card = document.createElement('div');
     card.className = 'order-card';
@@ -272,9 +263,7 @@
         <span>£${order.total.toFixed(2)}</span>
       </div>
       <div class="card-actions">
-        <button class="btn btn-print" ${canPrint ? '' : 'disabled'} onclick="printOrder('${order.id}', this)">
-          ${canPrint ? '🖨️ Print' : '🖨️ No printer'}
-        </button>
+        <span class="print-status" id="ps-${order.id}" style="font-size:13px;color:var(--muted);align-self:center"></span>
         <button class="btn btn-dismiss" onclick="dismissOrder('${order.id}')">Dismiss</button>
       </div>
     `;
@@ -283,6 +272,32 @@
       container.insertBefore(card, container.firstChild);
     } else {
       container.appendChild(card);
+    }
+  }
+
+  function setPrintStatus(id, msg) {
+    const el = document.getElementById('ps-' + id);
+    if (el) el.textContent = msg;
+  }
+
+  async function autoPrint(order) {
+    if (!navigator.bluetooth) {
+      setPrintStatus(order.id, '⚠️ No Bluetooth — not printed');
+      return;
+    }
+    if (!btCharacteristic) {
+      setPrintStatus(order.id, '⚠️ Printer not connected — not printed');
+      return;
+    }
+    try {
+      setPrintStatus(order.id, 'Printing…');
+      const bytes = buildEscPos(order);
+      for (let i = 0; i < bytes.length; i += 20) {
+        await btCharacteristic.writeValue(bytes.slice(i, i + 20));
+      }
+      setPrintStatus(order.id, '✓ Printed');
+    } catch (err) {
+      setPrintStatus(order.id, '⚠️ Print failed: ' + err.message);
     }
   }
 
@@ -385,27 +400,6 @@
     btCharacteristic = null;
     document.getElementById('bt-dot').className = '';
     document.getElementById('bt-label').textContent = 'Connect printer';
-  }
-
-  async function printOrder(orderId, btn) {
-    const order = orders.find(o => o.id === orderId);
-    if (!order || !btCharacteristic) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Printing…';
-
-    try {
-      const bytes = buildEscPos(order);
-      // Write in 20-byte chunks (BLE MTU limit)
-      for (let i = 0; i < bytes.length; i += 20) {
-        await btCharacteristic.writeValue(bytes.slice(i, i + 20));
-      }
-      btn.textContent = '✓ Printed';
-    } catch (err) {
-      btn.disabled = false;
-      btn.textContent = '🖨️ Print';
-      alert('Print failed: ' + err.message);
-    }
   }
 
   // ── ESC/POS encoder ──
