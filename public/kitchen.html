@@ -223,6 +223,8 @@
 </audio>
 
 <script>
+  const watchMode = new URLSearchParams(location.search).has('watch');
+
   // ── Order state ──
   const STORAGE_KEY = 'halfway_orders';
   let orders = [];
@@ -395,7 +397,9 @@
     updateDayBar();
     scheduleSunsetPrint();
 
-    if (!navigator.bluetooth) {
+    if (watchMode) {
+      document.getElementById('bt-status').style.display = 'none';
+    } else if (!navigator.bluetooth) {
       document.getElementById('bt-unsupported').style.display = 'block';
       document.getElementById('bt-status').style.display = 'none';
     }
@@ -408,8 +412,8 @@
     renderOrderCard(order, true);
     updateEmpty();
     updateDayBar();
-    playBeep();
-    await autoPrint(order);
+    if (!watchMode) playBeep();
+    if (!watchMode) await autoPrint(order);
   }
 
   // ── Render a card ──
