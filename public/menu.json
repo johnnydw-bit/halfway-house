@@ -1,39 +1,60 @@
 {
   "categories": [
     {
-      "name": "Hot Food",
-      "items": [
-        { "id": "hf1", "name": "Hot Dog", "price": 3.50 },
-        { "id": "hf2", "name": "Bacon Roll", "price": 4.00 },
-        { "id": "hf3", "name": "Sausage Roll", "price": 2.50 },
-        { "id": "hf4", "name": "Toasted Sandwich", "price": 4.50 }
-      ]
-    },
-    {
-      "name": "Cold Food",
-      "items": [
-        { "id": "cf1", "name": "Filled Roll", "price": 3.50 },
-        { "id": "cf2", "name": "Crisps", "price": 1.00 },
-        { "id": "cf3", "name": "Chocolate Bar", "price": 1.20 },
-        { "id": "cf4", "name": "Cereal Bar", "price": 1.50 }
-      ]
-    },
-    {
       "name": "Hot Drinks",
       "items": [
-        { "id": "hd1", "name": "Tea", "price": 1.80 },
-        { "id": "hd2", "name": "Coffee", "price": 2.20 },
-        { "id": "hd3", "name": "Hot Chocolate", "price": 2.50 }
+        { "id": "hd1", "name": "Espresso", "price": 3.70 },
+        { "id": "hd2", "name": "Americano", "price": 3.70 },
+        { "id": "hd3", "name": "Latte", "price": 4.05 },
+        { "id": "hd4", "name": "Cappuccino", "price": 4.05 },
+        { "id": "hd5", "name": "Flat White", "price": 3.95 },
+        { "id": "hd6", "name": "Mocha", "price": 4.30 },
+        { "id": "hd7", "name": "Hot Chocolate", "price": 4.20 },
+        { "id": "hd8", "name": "Tea", "price": 3.00 },
+        { "id": "hd9", "name": "Speciality Tea", "price": 3.35 },
+        { "id": "hd10", "name": "Bovril", "price": 3.20 }
       ]
     },
     {
-      "name": "Cold Drinks",
+      "name": "Hot Food",
       "items": [
-        { "id": "cd1", "name": "Water (500ml)", "price": 1.50 },
-        { "id": "cd2", "name": "Soft Drink (can)", "price": 1.80 },
-        { "id": "cd3", "name": "Lager (can)", "price": 3.20 },
-        { "id": "cd4", "name": "Cider (can)", "price": 3.50 },
-        { "id": "cd5", "name": "Wine (small bottle)", "price": 5.00 }
+        { "id": "hf1", "name": "Bacon Bap", "price": 6.50 },
+        { "id": "hf2", "name": "Sausage Bap", "price": 6.50 },
+        { "id": "hf3", "name": "Bacon and Sausage Bap", "price": 9.50 },
+        { "id": "hf4", "name": "Sausage Roll", "price": 2.50 }
+      ]
+    },
+    {
+      "name": "Soft Drinks",
+      "items": [
+        { "id": "sd1", "name": "Coke", "price": 2.75 },
+        { "id": "sd2", "name": "Diet Coke", "price": 2.75 },
+        { "id": "sd3", "name": "Sprite", "price": 2.75 },
+        { "id": "sd4", "name": "Fanta", "price": 2.75 },
+        { "id": "sd5", "name": "7 Up Zero", "price": 2.75 },
+        { "id": "sd6", "name": "Orange Juice", "price": 2.75 },
+        { "id": "sd7", "name": "Lucozade", "price": 2.75 },
+        { "id": "sd8", "name": "Still or Sparkling Water", "price": 1.50 }
+      ]
+    },
+    {
+      "name": "Beers and Spirits",
+      "items": [
+        { "id": "bs1", "name": "Cruzcampo", "price": 5.25 },
+        { "id": "bs2", "name": "San Miguel 0.0", "price": 4.25 },
+        { "id": "bs3", "name": "Hazy Hog Cider", "price": 6.50 },
+        { "id": "bs4", "name": "Brandy", "price": 4.75 },
+        { "id": "bs5", "name": "Whisky", "price": 4.75 }
+      ]
+    },
+    {
+      "name": "Snacks",
+      "items": [
+        { "id": "sn1", "name": "Eat Natural Bar", "price": 2.50 },
+        { "id": "sn2", "name": "Flapjack Bar", "price": 2.50 },
+        { "id": "sn3", "name": "Chocolate Bar", "price": 1.50 },
+        { "id": "sn4", "name": "Fruit", "price": 1.00 },
+        { "id": "sn5", "name": "Cake", "price": 2.50 }
       ]
     }
   ]

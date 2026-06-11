@@ -1,17 +1,33 @@
 Category,Name,Price
-Hot Food,Hot Dog,3.50
-Hot Food,Bacon Roll,4.00
+Hot Drinks,Espresso,3.70
+Hot Drinks,Americano,3.70
+Hot Drinks,Latte,4.05
+Hot Drinks,Cappuccino,4.05
+Hot Drinks,Flat White,3.95
+Hot Drinks,Mocha,4.30
+Hot Drinks,Hot Chocolate,4.20
+Hot Drinks,Tea,3.00
+Hot Drinks,Speciality Tea,3.35
+Hot Drinks,Bovril,3.20
+Hot Food,Bacon Bap,6.50
+Hot Food,Sausage Bap,6.50
+Hot Food,Bacon and Sausage Bap,9.50
 Hot Food,Sausage Roll,2.50
-Hot Food,Toasted Sandwich,4.50
-Cold Food,Filled Roll,3.50
-Cold Food,Crisps,1.00
-Cold Food,Chocolate Bar,1.20
-Cold Food,Cereal Bar,1.50
-Hot Drinks,Tea,1.80
-Hot Drinks,Coffee,2.20
-Hot Drinks,Hot Chocolate,2.50
-Cold Drinks,Water (500ml),1.50
-Cold Drinks,Soft Drink (can),1.80
-Cold Drinks,Lager (can),3.20
-Cold Drinks,Cider (can),3.50
-Cold Drinks,Wine (small bottle),5.00
+Soft Drinks,Coke,2.75
+Soft Drinks,Diet Coke,2.75
+Soft Drinks,Sprite,2.75
+Soft Drinks,Fanta,2.75
+Soft Drinks,7 Up Zero,2.75
+Soft Drinks,Orange Juice,2.75
+Soft Drinks,Lucozade,2.75
+Soft Drinks,Still or Sparkling Water,1.50
+Beers and Spirits,Cruzcampo,5.25
+Beers and Spirits,San Miguel 0.0,4.25
+Beers and Spirits,Hazy Hog Cider,6.50
+Beers and Spirits,Brandy,4.75
+Beers and Spirits,Whisky,4.75
+Snacks,Eat Natural Bar,2.50
+Snacks,Flapjack Bar,2.50
+Snacks,Chocolate Bar,1.50
+Snacks,Fruit,1.00
+Snacks,Cake,2.50
