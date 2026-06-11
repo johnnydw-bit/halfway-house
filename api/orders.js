@@ -23,13 +23,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid order' });
     }
     const score = new Date(order.timestamp).getTime();
-    await kv(['ZADD', 'orders', score, JSON.stringify(order)]);
+    await kv(['ZADD', 'hh:orders', score, JSON.stringify(order)]);
     return res.status(200).json({ ok: true });
   }
 
   if (req.method === 'GET') {
     const since = Number(req.query.since) || (Date.now() - 86400000);
-    const { result } = await kv(['ZRANGEBYSCORE', 'orders', since + 1, '+inf']);
+    const { result } = await kv(['ZRANGEBYSCORE', 'hh:orders', since + 1, '+inf']);
     const orders = (result || []).map(s => JSON.parse(s));
     return res.status(200).json({ orders });
   }
