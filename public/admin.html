@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Menu Admin — Bramley Halfway House</title>
-  <!-- SheetJS for parsing .xlsx and .csv -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     body { font-family: sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; }
     h1 { font-size: 22px; margin-bottom: 4px; }
@@ -13,13 +13,6 @@
 
     .step { margin-bottom: 28px; }
     .step h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #2c2757; margin-bottom: 10px; }
-
-    a.download-link {
-      display: inline-block;
-      background: #2c2757; color: #fff;
-      padding: 10px 18px; border-radius: 8px;
-      text-decoration: none; font-size: 14px; font-weight: 600;
-    }
 
     .upload-area {
       border: 2px dashed #ccc; border-radius: 10px;
@@ -62,26 +55,20 @@
   <img src="/logo.jpg" alt="Bramley GC" style="height:52px;width:auto">
   <h1 style="margin:0">Halfway House Menu Admin</h1>
 </div>
-<p class="sub">Upload a spreadsheet to update the menu. Changes take effect after committing <code>menu.json</code> to GitHub.</p>
+<p class="sub">Upload the menu Word document to update the live menu. Changes take effect after committing <code>menu.json</code> to GitHub.</p>
 
 <div class="step">
-  <h2>Step 1 — Download the template</h2>
-  <a class="download-link" href="/menu-template.csv" download="halfway-house-menu.csv">⬇ Download menu-template.csv</a>
-  <p style="font-size:13px;color:#888;margin-top:8px">Edit in Excel or Google Sheets. Keep the three columns: Category, Name, Price.<br>Add or remove rows freely. Don't change the header row.</p>
-</div>
-
-<div class="step">
-  <h2>Step 2 — Upload your edited file</h2>
+  <h2>Upload the menu file</h2>
   <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()">
     <p>Click to choose file, or drag and drop here</p>
-    <p style="margin-top:6px;font-size:12px">.csv or .xlsx accepted</p>
+    <p style="margin-top:6px;font-size:12px">.docx, .csv, or .xlsx accepted</p>
   </div>
-  <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+  <input type="file" id="file-input" accept=".docx,.csv,.xlsx,.xls">
   <div id="error-box"></div>
 </div>
 
 <div id="preview">
-  <h2>Step 3 — Check the preview, then download</h2>
+  <h2>Check the preview, then download</h2>
   <table id="preview-table"></table>
   <div class="actions">
     <button class="primary" onclick="downloadJson()">⬇ Download menu.json</button>
@@ -97,22 +84,112 @@
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
   zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('drag');
+    e.preventDefault(); zone.classList.remove('drag');
     handleFile(e.dataTransfer.files[0]);
   });
   document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
 
-  // ── Parse file ──
+  // ── Route by file type ──
   function handleFile(file) {
     if (!file) return;
+    hideError();
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'docx') {
+      handleDocx(file);
+    } else {
+      handleSpreadsheet(file);
+    }
+  }
+
+  // ── Parse .docx ──
+  // The menu doc is a table with 4 columns: Name | Price | Name | Price
+  // Category headers are cells whose text ends with ":"
+  async function handleDocx(file) {
+    try {
+      const ab = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(ab);
+      const xmlStr = await zip.file('word/document.xml').async('string');
+
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+      const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+      // Helper: get plain text from a cell element
+      function cellText(tc) {
+        const ts = tc.getElementsByTagNameNS(
+          'http://schemas.openxmlformats.org/wordprocessingml/2006/main', 't');
+        let text = '';
+        for (const t of ts) text += t.textContent;
+        return text.trim();
+      }
+
+      const rows = xmlDoc.getElementsByTagNameNS(
+        'http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'tr');
+
+      // colCategory[colIndex] = current category name for that column
+      const colCategory = {};
+      const categoryMap = new Map(); // preserves insertion order
+
+      for (const row of rows) {
+        const cells = row.getElementsByTagNameNS(
+          'http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'tc');
+        const texts = Array.from(cells).map(cellText);
+
+        for (let i = 0; i < texts.length; i++) {
+          const text = texts[i];
+          if (!text) continue;
+
+          if (text.endsWith(':')) {
+            // Category header — record which column it's in
+            const catName = text.slice(0, -1).trim();
+            colCategory[i] = catName;
+            if (!categoryMap.has(catName)) categoryMap.set(catName, []);
+          } else if (i + 1 < texts.length && texts[i + 1].replace(/\s/g, '').startsWith('£')) {
+            // Item + price pair
+            const name = text;
+            const priceStr = texts[i + 1].replace(/[£\s,]/g, '');
+            const price = parseFloat(priceStr);
+            if (!isNaN(price)) {
+              // Find the category for this column (nearest category header at or before col i)
+              let cat = null;
+              for (let c = i; c >= 0; c--) {
+                if (colCategory[c]) { cat = colCategory[c]; break; }
+              }
+              if (cat && categoryMap.has(cat)) {
+                categoryMap.get(cat).push({
+                  id: slugId(cat, name),
+                  name,
+                  price: Math.round(price * 100) / 100
+                });
+              }
+              i++; // skip the price cell
+            }
+          }
+        }
+      }
+
+      const categories = Array.from(categoryMap, ([name, items]) => ({ name, items }))
+        .filter(c => c.items.length > 0);
+
+      if (categories.length === 0)
+        return showError('No menu items found in the document. Check it contains a table with Name and £Price columns.');
+
+      parsedMenu = { categories };
+      renderPreview(parsedMenu);
+    } catch (err) {
+      showError('Could not read Word document: ' + err.message);
+    }
+  }
+
+  // ── Parse .csv / .xlsx ──
+  function handleSpreadsheet(file) {
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const wb = XLSX.read(e.target.result, { type: 'binary' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        parseRows(rows);
+        parseSpreadsheetRows(rows);
       } catch (err) {
         showError('Could not read file: ' + err.message);
       }
@@ -120,9 +197,7 @@
     reader.readAsBinaryString(file);
   }
 
-  function parseRows(rows) {
-    hideError();
-    // Find header row (first row containing "category" and "name")
+  function parseSpreadsheetRows(rows) {
     let headerIdx = -1;
     for (let i = 0; i < Math.min(rows.length, 5); i++) {
       const lower = rows[i].map(c => String(c).toLowerCase());
@@ -147,7 +222,7 @@
       const raw   = String(row[priceIdx]|| '').trim().replace(/[£$,]/g, '');
       const price = parseFloat(raw);
 
-      if (!cat && !name) continue; // blank row — skip
+      if (!cat && !name) continue;
       if (!cat)   { errors.push(`Row ${i + 1}: missing Category`); continue; }
       if (!name)  { errors.push(`Row ${i + 1}: missing Name`); continue; }
       if (isNaN(price) || price < 0) { errors.push(`Row ${i + 1}: invalid Price "${row[priceIdx]}"`); continue; }
@@ -163,12 +238,12 @@
     renderPreview(parsedMenu);
   }
 
+  // ── Shared ──
   function slugId(cat, name) {
     return (cat.substring(0, 2) + name).toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 8)
       + Math.random().toString(36).substring(2, 5);
   }
 
-  // ── Preview table ──
   function renderPreview(menu) {
     const table = document.getElementById('preview-table');
     let html = '<tr><th>Category</th><th>Name</th><th>Price</th></tr>';
@@ -182,7 +257,6 @@
     document.getElementById('preview').style.display = 'block';
   }
 
-  // ── Download ──
   function downloadJson() {
     if (!parsedMenu) return;
     const blob = new Blob([JSON.stringify(parsedMenu, null, 2)], { type: 'application/json' });
