@@ -172,19 +172,6 @@
       color: var(--muted);
     }
     #day-bar strong { color: var(--text); }
-    #summary-btn {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      border-radius: 8px;
-      padding: 5px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    #summary-btn:hover { border-color: var(--muted); color: var(--text); }
-
     /* ── BT not supported banner ── */
     #bt-unsupported {
       margin: 12px 14px 0;
@@ -216,7 +203,6 @@
 
 <div id="day-bar">
   <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
-  <button id="summary-btn" onclick="printDaySummary()">Print summary</button>
 </div>
 
 <div id="bt-unsupported">
