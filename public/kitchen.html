@@ -160,6 +160,31 @@
       border: 1px solid var(--border);
     }
 
+    /* ── Day summary bar ── */
+    #day-bar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 7px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    #day-bar strong { color: var(--text); }
+    #summary-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #summary-btn:hover { border-color: var(--muted); color: var(--text); }
+
     /* ── BT not supported banner ── */
     #bt-unsupported {
       margin: 12px 14px 0;
@@ -188,6 +213,11 @@
     <span id="bt-label">Connect printer</span>
   </div>
 </header>
+
+<div id="day-bar">
+  <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
+  <button id="summary-btn" onclick="printDaySummary()">Print summary</button>
+</div>
 
 <div id="bt-unsupported">
   ⚠️ Web Bluetooth is not available in this browser. Orders will display on screen only.
@@ -220,10 +250,144 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
   }
 
+  // ── Today's orders only ──
+  function todayDateStr() {
+    return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  }
+
+  function todaysOrders() {
+    const today = todayDateStr();
+    return orders.filter(o => o.timestamp && o.timestamp.slice(0, 10) === today);
+  }
+
+  function updateDayBar() {
+    const todays = todaysOrders();
+    const total  = todays.reduce((s, o) => s + (o.total || 0), 0);
+    document.getElementById('day-orders').textContent = todays.length;
+    document.getElementById('day-total').textContent  = '£' + total.toFixed(2);
+  }
+
+  // ── End-of-day summary print ──
+  const SUMMARY_KEY = 'halfway_summary_printed';
+
+  async function printDaySummary() {
+    const btn = document.getElementById('summary-btn');
+    btn.textContent = 'Printing…';
+    btn.disabled = true;
+    try {
+      const todays = todaysOrders();
+      const bytes = buildSummaryEscPos(todays);
+      if (btCharacteristic) {
+        for (let i = 0; i < bytes.length; i += 20) {
+          await btCharacteristic.writeValue(bytes.slice(i, i + 20));
+        }
+        localStorage.setItem(SUMMARY_KEY, todayDateStr());
+      } else {
+        alert('Printer not connected — connect the printer first.');
+      }
+    } catch (err) {
+      alert('Print failed: ' + err.message);
+    }
+    btn.textContent = 'Print summary';
+    btn.disabled = false;
+  }
+
+  function buildSummaryEscPos(todays) {
+    const W = 32;
+    const b = [];
+    const push = (...bytes) => b.push(...bytes);
+    const text = (s) => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
+    const line = (s = '') => { text(s.substring(0, W)); push(0x0a); };
+    const hr = (ch = '=') => line(ch.repeat(W));
+    const right = (l, r) => {
+      const gap = W - l.length - r.length;
+      line(l + ' '.repeat(Math.max(1, gap)) + r);
+    };
+
+    const total = todays.reduce((s, o) => s + (o.total || 0), 0);
+    const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    push(0x1b, 0x40); // init
+    push(0x1b, 0x61, 0x01); // center
+    push(0x1b, 0x45, 0x01, 0x1b, 0x21, 0x10); // bold + double height
+    line('HALFWAY HOUSE');
+    push(0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00);
+    line('End of Day Summary');
+    push(0x1b, 0x61, 0x00); // left
+    hr('=');
+    line(dateStr);
+    hr('-');
+    right('Orders taken:', String(todays.length));
+    push(0x1b, 0x45, 0x01);
+    right('Total revenue:', '£' + total.toFixed(2));
+    push(0x1b, 0x45, 0x00);
+    hr('=');
+
+    // Per-category breakdown
+    if (todays.length > 0) {
+      const catMap = new Map();
+      for (const order of todays) {
+        for (const item of order.items) {
+          const cat = item.category || 'Other';
+          if (!catMap.has(cat)) catMap.set(cat, { qty: 0, total: 0 });
+          const e = catMap.get(cat);
+          e.qty   += item.qty;
+          e.total += item.qty * item.price;
+        }
+      }
+      if (catMap.size > 0) {
+        line('By category:');
+        for (const [cat, { qty, total: ct }] of catMap) {
+          right(cat.substring(0, 20) + ' x' + qty, '£' + ct.toFixed(2));
+        }
+        hr('-');
+      }
+    }
+
+    line(); line(); line();
+    push(0x1d, 0x56, 0x01); // cut
+    return new Uint8Array(b);
+  }
+
+  // ── Sunset auto-print ──
+  async function scheduleSunsetPrint() {
+    // Don't double-print if already done today
+    if (localStorage.getItem(SUMMARY_KEY) === todayDateStr()) return;
+
+    let sunsetMs;
+    try {
+      const pos = await new Promise((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+      );
+      const { latitude, longitude } = pos.coords;
+      const resp = await fetch(
+        `https://api.sunrise-sunset.org/json?lat=${latitude}&lng=${longitude}&formatted=0`
+      );
+      const data = await resp.json();
+      sunsetMs = new Date(data.results.sunset).getTime();
+    } catch {
+      // Fallback: 21:00 local time
+      const d = new Date();
+      d.setHours(21, 0, 0, 0);
+      sunsetMs = d.getTime();
+    }
+
+    const delay = sunsetMs - Date.now();
+    if (delay > 0) {
+      setTimeout(() => {
+        if (localStorage.getItem(SUMMARY_KEY) !== todayDateStr()) {
+          printDaySummary();
+        }
+      }, delay);
+    }
+  }
+
   // ── Render persisted orders on load ──
   window.addEventListener('DOMContentLoaded', () => {
     orders.forEach(o => renderOrderCard(o, false));
     updateEmpty();
+    updateDayBar();
+    scheduleSunsetPrint();
 
     if (!navigator.bluetooth) {
       document.getElementById('bt-unsupported').style.display = 'block';
@@ -237,6 +401,7 @@
     saveOrders();
     renderOrderCard(order, true);
     updateEmpty();
+    updateDayBar();
     playBeep();
     await autoPrint(order);
   }
@@ -317,6 +482,7 @@
   function dismissOrder(id) {
     orders = orders.filter(o => o.id !== id);
     saveOrders();
+    updateDayBar();
     const el = document.getElementById('order-' + id);
     if (el) {
       el.style.transition = 'opacity 0.2s, transform 0.2s';
