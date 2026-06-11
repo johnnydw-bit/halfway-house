@@ -223,11 +223,7 @@
 </audio>
 
 <script>
-  // ── BroadcastChannel listener ──
-  const channel = new BroadcastChannel('halfway-orders');
-  channel.onmessage = (e) => receiveOrder(e.data);
-
-  // ── Persist orders across reloads ──
+  // ── Order state ──
   const STORAGE_KEY = 'halfway_orders';
   let orders = [];
   try { orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
@@ -235,6 +231,30 @@
   function saveOrders() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
   }
+
+  // ── Polling ──
+  // Track the highest timestamp we've seen so each poll only fetches new orders
+  let lastSeen = orders.length
+    ? Math.max(...orders.map(o => new Date(o.timestamp).getTime()))
+    : Date.now() - 86400000; // on first load, fetch today's orders
+
+  const seenIds = new Set(orders.map(o => o.id));
+
+  async function pollOrders() {
+    try {
+      const res = await fetch(`/api/orders?since=${lastSeen}`);
+      if (!res.ok) return;
+      const { orders: fresh } = await res.json();
+      for (const order of fresh) {
+        if (seenIds.has(order.id)) continue;
+        seenIds.add(order.id);
+        lastSeen = Math.max(lastSeen, new Date(order.timestamp).getTime());
+        await receiveOrder(order);
+      }
+    } catch {}
+  }
+
+  setInterval(pollOrders, 3000);
 
   // ── Today's orders only ──
   function todayDateStr() {

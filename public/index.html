@@ -308,7 +308,6 @@
 </div>
 
 <script>
-  const channel = new BroadcastChannel('halfway-orders');
   let menu = [];
   let basket = {}; // id → qty
 
@@ -398,7 +397,7 @@
   }
 
   // ── Place order ──
-  function placeOrder() {
+  async function placeOrder() {
     const name = document.getElementById('name-input').value.trim();
     const membership = document.getElementById('membership-input').value.trim();
     if (!name) {
@@ -422,12 +421,19 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Placing order…';
 
-    // BroadcastChannel relay to kitchen tab
-    channel.postMessage(order);
-
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order)
+      });
+      if (!res.ok) throw new Error('Server error');
       showConfirm(order);
-    }, 600);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+      alert('Could not send order — please try again.');
+    }
   }
 
   function showConfirm(order) {
