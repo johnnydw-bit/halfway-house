@@ -55,7 +55,7 @@
   <img src="/logo.jpg" alt="Bramley GC" style="height:52px;width:auto">
   <h1 style="margin:0">Halfway House Menu Admin</h1>
 </div>
-<p class="sub">Upload the menu Word document to update the live menu. Changes take effect after committing <code>menu.json</code> to GitHub.</p>
+<p class="sub">Upload the menu Word document. Once you're happy with the preview, click <strong>Update Live Menu</strong> and it goes live automatically.</p>
 
 <div class="step">
   <h2>Upload the menu file</h2>
@@ -71,8 +71,8 @@
   <h2>Check the preview, then download</h2>
   <table id="preview-table"></table>
   <div class="actions">
-    <button class="primary" onclick="downloadJson()">⬇ Download menu.json</button>
-    <span class="note">Commit this file to GitHub to go live.</span>
+    <button class="primary" id="publish-btn" onclick="publishMenu()">✓ Update Live Menu</button>
+    <span class="note" id="publish-status"></span>
   </div>
 </div>
 
@@ -257,13 +257,33 @@
     document.getElementById('preview').style.display = 'block';
   }
 
-  function downloadJson() {
+  async function publishMenu() {
     if (!parsedMenu) return;
-    const blob = new Blob([JSON.stringify(parsedMenu, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'menu.json';
-    a.click();
+    const btn = document.getElementById('publish-btn');
+    const status = document.getElementById('publish-status');
+    btn.disabled = true;
+    btn.textContent = 'Publishing…';
+    status.textContent = '';
+    status.style.color = '';
+
+    try {
+      const res = await fetch('/api/update-menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menu: parsedMenu })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unknown error');
+      btn.textContent = '✓ Update Live Menu';
+      btn.disabled = false;
+      status.textContent = 'Menu updated — live in ~30 seconds.';
+      status.style.color = '#2c2757';
+    } catch (err) {
+      btn.textContent = '✓ Update Live Menu';
+      btn.disabled = false;
+      status.textContent = '⚠️ Failed: ' + err.message;
+      status.style.color = '#c0392b';
+    }
   }
 
   function showError(msg) {
