@@ -443,7 +443,7 @@
         <span>£${order.total.toFixed(2)}</span>
       </div>
       <div class="card-actions">
-        <span class="print-status" id="ps-${order.id}" style="font-size:13px;color:var(--muted);align-self:center"></span>
+        <span class="print-status" id="ps-${order.id}" style="font-size:13px;color:var(--text);align-self:center"></span>
         <button class="btn btn-dismiss" onclick="dismissOrder('${order.id}')">Dismiss</button>
       </div>
     `;
@@ -472,8 +472,11 @@
     try {
       setPrintStatus(order.id, 'Printing…');
       const bytes = buildEscPos(order);
+      const write = btCharacteristic.properties.writeWithoutResponse
+        ? btCharacteristic.writeValueWithoutResponse.bind(btCharacteristic)
+        : btCharacteristic.writeValue.bind(btCharacteristic);
       for (let i = 0; i < bytes.length; i += 20) {
-        await btCharacteristic.writeValue(bytes.slice(i, i + 20));
+        await write(bytes.slice(i, i + 20));
       }
       setPrintStatus(order.id, '✓ Printed');
     } catch (err) {
