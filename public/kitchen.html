@@ -192,7 +192,7 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.0</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.1</span></p>
     </div>
   </div>
   <div id="bt-status" onclick="connectBluetooth()">
@@ -653,28 +653,24 @@
     if (!btCharacteristic) { alert('Connect the printer first.'); return; }
     btn.textContent = 'Sending…';
     btn.disabled = true;
+    dbg('testPrint started');
     try {
-      const b = [];
-      const push = (...bytes) => b.push(...bytes);
-      const text = s => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
-      push(0x1b, 0x40);         // init
-      text('Test print OK');
-      push(0x0a);               // newline
-      text('Bramley Halfway House');
-      push(0x0a, 0x0a, 0x0a);   // feed 3 lines
-      const bytes = new Uint8Array(b);
-      const delay = ms => new Promise(r => setTimeout(r, ms));
-      for (let i = 0; i < bytes.length; i += 16) {
-        try {
-          await btCharacteristic.writeValueWithoutResponse(bytes.slice(i, i + 16));
-        } catch {
-          await btCharacteristic.writeValue(bytes.slice(i, i + 16));
-        }
-        await delay(20);
+      // Absolute minimum — just ESC @ (init) and a line feed
+      const bytes = new Uint8Array([0x1b, 0x40, 0x0a]);
+      dbg('Sending ' + bytes.length + ' bytes…');
+      try {
+        await btCharacteristic.writeValueWithoutResponse(bytes);
+        dbg('writeValueWithoutResponse OK');
+      } catch (e) {
+        dbg('writeValueWithoutResponse failed: ' + e.message + ' — trying writeValue');
+        await btCharacteristic.writeValue(bytes);
+        dbg('writeValue OK');
       }
       btn.textContent = '✓ Sent';
+      dbg('testPrint done');
     } catch (err) {
-      btn.textContent = 'Failed: ' + err.message;
+      dbg('testPrint error: ' + err.message);
+      btn.textContent = 'Failed';
     }
     setTimeout(() => { btn.textContent = 'Test print'; btn.disabled = false; }, 3000);
   }
