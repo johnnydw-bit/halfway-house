@@ -192,7 +192,7 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.8</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.9</span></p>
     </div>
   </div>
   <div id="bt-status" onclick="connectBluetooth()">
@@ -562,6 +562,7 @@
 
       // Try each profile until one works
       let connected = false;
+      const profileErrors = [];
       for (const profile of BT_PROFILES) {
         try {
           const service = await server.getPrimaryService(profile.service);
@@ -579,11 +580,14 @@
             } catch {}
           }
           connected = true;
+          label.textContent = (device.name || 'Printer') + ' ✓ profile ' + BT_PROFILES.indexOf(profile);
           break;
-        } catch {}
+        } catch (e) {
+          profileErrors.push('P' + BT_PROFILES.indexOf(profile) + ': ' + e.message);
+        }
       }
 
-      if (!connected) throw new Error('No compatible print service found on this device.');
+      if (!connected) throw new Error('No profile matched. ' + profileErrors.join(' | '));
 
       dot.className = 'connected';
       label.textContent = device.name || 'Printer connected';
