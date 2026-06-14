@@ -472,11 +472,12 @@
     try {
       setPrintStatus(order.id, 'Printing…');
       const bytes = buildEscPos(order);
-      const write = btCharacteristic.properties.writeWithoutResponse
-        ? btCharacteristic.writeValueWithoutResponse.bind(btCharacteristic)
-        : btCharacteristic.writeValue.bind(btCharacteristic);
       for (let i = 0; i < bytes.length; i += 20) {
-        await write(bytes.slice(i, i + 20));
+        try {
+          await btCharacteristic.writeValueWithoutResponse(bytes.slice(i, i + 20));
+        } catch {
+          await btCharacteristic.writeValue(bytes.slice(i, i + 20));
+        }
       }
       setPrintStatus(order.id, '✓ Printed');
     } catch (err) {
