@@ -192,7 +192,7 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.9</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.0</span></p>
     </div>
   </div>
   <div id="bt-status" onclick="connectBluetooth()">
@@ -206,6 +206,7 @@
   <button id="test-print-btn" onclick="testPrint()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Test print</button>
   <button onclick="printerStatus()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Status</button>
 </div>
+<div id="debug-log" style="background:#111;color:#0f0;font-size:11px;font-family:monospace;padding:8px 12px;display:none;word-break:break-all;white-space:pre-wrap;max-height:120px;overflow-y:auto"></div>
 
 <div id="bt-unsupported">
   ⚠️ Web Bluetooth is not available in this browser. Orders will display on screen only.
@@ -543,10 +544,18 @@
     { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3', notify: '49535343-1e4d-4bd9-ba61-23c647249616' },
   ];
 
+  function dbg(msg) {
+    const el = document.getElementById('debug-log');
+    el.style.display = 'block';
+    el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
   async function connectBluetooth() {
     if (!navigator.bluetooth) return;
     const dot = document.getElementById('bt-dot');
     const label = document.getElementById('bt-label');
+    dbg('Starting BT connect…');
 
     dot.className = 'connecting';
     label.textContent = 'Connecting…';
@@ -557,17 +566,22 @@
         optionalServices: BT_PROFILES.map(p => p.service)
       });
 
+      dbg('Device selected: ' + (device.name || 'unnamed'));
       const server = await device.gatt.connect();
+      dbg('GATT connected');
       device.addEventListener('gattserverdisconnected', onDisconnected);
 
       // Try each profile until one works
       let connected = false;
       const profileErrors = [];
       for (const profile of BT_PROFILES) {
+        const idx = BT_PROFILES.indexOf(profile);
         try {
+          dbg('Trying profile ' + idx + '…');
           const service = await server.getPrimaryService(profile.service);
+          dbg('P' + idx + ' service OK');
           btCharacteristic = await service.getCharacteristic(profile.char);
-          // Subscribe to notify characteristic if available
+          dbg('P' + idx + ' characteristic OK');
           if (profile.notify) {
             try {
               const notifyChar = await service.getCharacteristic(profile.notify);
@@ -575,15 +589,20 @@
               notifyChar.addEventListener('characteristicvaluechanged', e => {
                 const val = new Uint8Array(e.target.value.buffer);
                 const hex = Array.from(val).map(b => b.toString(16).padStart(2,'0')).join(' ');
+                dbg('Notify: ' + hex);
                 document.getElementById('bt-label').textContent = 'Status: ' + hex;
               });
-            } catch {}
+              dbg('P' + idx + ' notify OK');
+            } catch (e) { dbg('P' + idx + ' notify failed: ' + e.message); }
           }
           connected = true;
-          label.textContent = (device.name || 'Printer') + ' ✓ profile ' + BT_PROFILES.indexOf(profile);
+          label.textContent = (device.name || 'Printer') + ' ✓ P' + idx;
+          dbg('Connected on profile ' + idx);
           break;
         } catch (e) {
-          profileErrors.push('P' + BT_PROFILES.indexOf(profile) + ': ' + e.message);
+          const msg = 'P' + idx + ' failed: ' + e.message;
+          profileErrors.push(msg);
+          dbg(msg);
         }
       }
 
@@ -593,9 +612,10 @@
       label.textContent = device.name || 'Printer connected';
 
     } catch (err) {
+      dbg('Error: ' + err.message);
       dot.className = '';
       label.textContent = 'Connect printer';
-      if (err.name !== 'NotFoundError') { // user cancelled — don't alert
+      if (err.name !== 'NotFoundError') {
         alert('Bluetooth error: ' + err.message);
       }
     }
