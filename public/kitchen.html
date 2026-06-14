@@ -192,7 +192,7 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.7</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.8</span></p>
     </div>
   </div>
   <div id="bt-status" onclick="connectBluetooth()">
@@ -204,6 +204,7 @@
 <div id="day-bar">
   <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
   <button id="test-print-btn" onclick="testPrint()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Test print</button>
+  <button onclick="printerStatus()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Status</button>
 </div>
 
 <div id="bt-unsupported">
@@ -535,11 +536,11 @@
   // Common BLE thermal printer service/characteristic pairs to try
   const BT_PROFILES = [
     // Generic BLE thermal (most common cheap printers)
-    { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb' },
+    { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb', notify: '00002af0-0000-1000-8000-00805f9b34fb' },
     // Peripage / Cat printer style
-    { service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f' },
+    { service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', notify: null },
     // Serial BLE (Bluetooth SPP over BLE bridge)
-    { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3' },
+    { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3', notify: '49535343-1e4d-4bd9-ba61-23c647249616' },
   ];
 
   async function connectBluetooth() {
@@ -565,6 +566,18 @@
         try {
           const service = await server.getPrimaryService(profile.service);
           btCharacteristic = await service.getCharacteristic(profile.char);
+          // Subscribe to notify characteristic if available
+          if (profile.notify) {
+            try {
+              const notifyChar = await service.getCharacteristic(profile.notify);
+              await notifyChar.startNotifications();
+              notifyChar.addEventListener('characteristicvaluechanged', e => {
+                const val = new Uint8Array(e.target.value.buffer);
+                const hex = Array.from(val).map(b => b.toString(16).padStart(2,'0')).join(' ');
+                document.getElementById('bt-label').textContent = 'Status: ' + hex;
+              });
+            } catch {}
+          }
           connected = true;
           break;
         } catch {}
@@ -588,6 +601,27 @@
     btCharacteristic = null;
     document.getElementById('bt-dot').className = '';
     document.getElementById('bt-label').textContent = 'Connect printer';
+  }
+
+  async function printerStatus() {
+    if (!btCharacteristic) { alert('Connect the printer first.'); return; }
+    try {
+      // DLE EOT n — real-time status request (n=1: printer status, n=2: offline, n=3: error, n=4: paper)
+      const cmds = [
+        new Uint8Array([0x10, 0x04, 0x01]), // printer status
+        new Uint8Array([0x10, 0x04, 0x02]), // offline status
+        new Uint8Array([0x10, 0x04, 0x04]), // paper status
+      ];
+      for (const cmd of cmds) {
+        try { await btCharacteristic.writeValueWithoutResponse(cmd); }
+        catch { await btCharacteristic.writeValue(cmd); }
+        await new Promise(r => setTimeout(r, 100));
+      }
+      // Response will appear in the bt-label via notify subscription
+      document.getElementById('bt-label').textContent = 'Waiting for status…';
+    } catch (err) {
+      alert('Status error: ' + err.message);
+    }
   }
 
   async function testPrint() {
