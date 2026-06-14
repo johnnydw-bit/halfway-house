@@ -192,7 +192,7 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.6</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v1.7</span></p>
     </div>
   </div>
   <div id="bt-status" onclick="connectBluetooth()">
@@ -203,6 +203,7 @@
 
 <div id="day-bar">
   <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
+  <button id="test-print-btn" onclick="testPrint()" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Test print</button>
 </div>
 
 <div id="bt-unsupported">
@@ -587,6 +588,37 @@
     btCharacteristic = null;
     document.getElementById('bt-dot').className = '';
     document.getElementById('bt-label').textContent = 'Connect printer';
+  }
+
+  async function testPrint() {
+    const btn = document.getElementById('test-print-btn');
+    if (!btCharacteristic) { alert('Connect the printer first.'); return; }
+    btn.textContent = 'Sending…';
+    btn.disabled = true;
+    try {
+      const b = [];
+      const push = (...bytes) => b.push(...bytes);
+      const text = s => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
+      push(0x1b, 0x40);         // init
+      text('Test print OK');
+      push(0x0a);               // newline
+      text('Bramley Halfway House');
+      push(0x0a, 0x0a, 0x0a);   // feed 3 lines
+      const bytes = new Uint8Array(b);
+      const delay = ms => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < bytes.length; i += 16) {
+        try {
+          await btCharacteristic.writeValueWithoutResponse(bytes.slice(i, i + 16));
+        } catch {
+          await btCharacteristic.writeValue(bytes.slice(i, i + 16));
+        }
+        await delay(20);
+      }
+      btn.textContent = '✓ Sent';
+    } catch (err) {
+      btn.textContent = 'Failed: ' + err.message;
+    }
+    setTimeout(() => { btn.textContent = 'Test print'; btn.disabled = false; }, 3000);
   }
 
   // ── ESC/POS encoder ──
