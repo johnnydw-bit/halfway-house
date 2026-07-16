@@ -241,18 +241,7 @@
   const seenIds = new Set(orders.map(o => o.id));
 
   let lastOrderAt = Date.now();
-  let pollTimer = null;
-
-  function schedulePoll() {
-    clearTimeout(pollTimer);
-    const idle = Date.now() - lastOrderAt > 60_000;
-    const interval = idle ? 180_000 : 3_000;
-    document.getElementById('poll-status').textContent = idle ? 'polling: 3 min' : 'polling: 3 s';
-    pollTimer = setTimeout(async () => {
-      await pollOrders();
-      schedulePoll();
-    }, interval);
-  }
+  let tickCount = 0;
 
   async function pollOrders() {
     try {
@@ -269,14 +258,19 @@
     } catch {}
   }
 
-  schedulePoll();
+  // setInterval is more resistant to browser throttling than chained setTimeout
+  setInterval(async () => {
+    tickCount++;
+    const idle = Date.now() - lastOrderAt > 60_000;
+    document.getElementById('poll-status').textContent = idle ? 'polling: 30 s' : 'polling: 3 s';
+    // When idle, only fetch every 10th tick (every ~30 s)
+    if (idle && tickCount % 10 !== 0) return;
+    await pollOrders();
+  }, 3000);
 
-  // Re-poll immediately when the page becomes visible again (iOS suspends timers in background)
+  // Re-poll immediately when the page becomes visible again
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      clearTimeout(pollTimer);
-      pollOrders().then(schedulePoll);
-    }
+    if (document.visibilityState === 'visible') pollOrders();
   });
 
   // ── Today's orders ──
