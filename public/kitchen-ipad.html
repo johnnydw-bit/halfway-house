@@ -339,6 +339,17 @@
   }
 
   // ── Init ──
+  // Unlock speech synthesis on first user gesture — required by Chrome/Safari
+  let speechUnlocked = false;
+  function unlockSpeech() {
+    if (speechUnlocked) return;
+    speechUnlocked = true;
+    const utt = new SpeechSynthesisUtterance('');
+    speechSynthesis.speak(utt);
+  }
+  document.addEventListener('click', unlockSpeech, { once: true });
+  document.addEventListener('touchstart', unlockSpeech, { once: true });
+
   window.addEventListener('DOMContentLoaded', () => {
     orders.forEach(o => renderOrderCard(o, false));
     updateEmpty();
