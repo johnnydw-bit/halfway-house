@@ -196,6 +196,7 @@
 
 <div id="day-bar">
   <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
+  <span id="poll-status" style="font-size:11px;color:var(--muted)"></span>
 </div>
 
 <!-- End-of-day summary overlay -->
@@ -245,10 +246,12 @@
   function schedulePoll() {
     clearTimeout(pollTimer);
     const idle = Date.now() - lastOrderAt > 60_000;
+    const interval = idle ? 180_000 : 3_000;
+    document.getElementById('poll-status').textContent = idle ? 'polling: 3 min' : 'polling: 3 s';
     pollTimer = setTimeout(async () => {
       await pollOrders();
       schedulePoll();
-    }, idle ? 180_000 : 3_000);
+    }, interval);
   }
 
   async function pollOrders() {
