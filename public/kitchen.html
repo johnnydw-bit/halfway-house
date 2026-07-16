@@ -245,6 +245,19 @@
 
   const seenIds = new Set(orders.map(o => o.id));
 
+  // Poll every 3 s for 1 minute after the last order, then every 3 minutes when idle.
+  let lastOrderAt = 0;
+  let pollTimer = null;
+
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    const idle = Date.now() - lastOrderAt > 60_000;
+    pollTimer = setTimeout(async () => {
+      await pollOrders();
+      schedulePoll();
+    }, idle ? 180_000 : 3_000);
+  }
+
   async function pollOrders() {
     try {
       const res = await fetch(`/api/orders?since=${lastSeen}`);
@@ -254,12 +267,13 @@
         if (seenIds.has(order.id)) continue;
         seenIds.add(order.id);
         lastSeen = Math.max(lastSeen, new Date(order.timestamp).getTime());
+        lastOrderAt = Date.now();
         await receiveOrder(order);
       }
     } catch {}
   }
 
-  setInterval(pollOrders, 3000);
+  schedulePoll();
 
   // ── Today's orders only ──
   function todayDateStr() {
