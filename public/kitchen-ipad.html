@@ -424,11 +424,14 @@
     if (!window.speechSynthesis) return;
     const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
     const msg = `New order from ${order.name}. ${itemCount} item${itemCount !== 1 ? 's' : ''}. Total £${order.total.toFixed(2)}.`;
-    const utt = new SpeechSynthesisUtterance(msg);
-    utt.rate = 0.95;
-    utt.volume = 1;
-    speechSynthesis.cancel(); // clear any queued speech
-    speechSynthesis.speak(utt);
+    speechSynthesis.cancel();
+    // Brief pause after cancel — skipping it causes the utterance to be silently dropped
+    setTimeout(() => {
+      const utt = new SpeechSynthesisUtterance(msg);
+      utt.rate = 0.95;
+      utt.volume = 1;
+      speechSynthesis.speak(utt);
+    }, 150);
   }
 </script>
 </body>
