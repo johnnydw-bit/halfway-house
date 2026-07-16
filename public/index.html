@@ -399,8 +399,8 @@
   // ── Place order ──
   async function placeOrder() {
     const hour = new Date().getHours();
-    if (hour < 10 || hour >= 15) {
-      alert('Sorry, the halfway house is closed. Orders are accepted between 10am and 3pm.');
+    if (hour < 9 || hour >= 15) {
+      alert('Sorry, the halfway house is closed. Orders are accepted between 9am and 3pm.');
       return;
     }
 
