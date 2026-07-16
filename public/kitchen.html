@@ -246,7 +246,7 @@
   const seenIds = new Set(orders.map(o => o.id));
 
   // Poll every 3 s for 1 minute after the last order, then every 3 minutes when idle.
-  let lastOrderAt = 0;
+  let lastOrderAt = Date.now();
   let pollTimer = null;
 
   function schedulePoll() {
