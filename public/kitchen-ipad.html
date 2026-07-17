@@ -182,6 +182,19 @@
       color: var(--muted);
     }
     .btn-dismiss:active { opacity: 0.75; }
+    .btn-gotit {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 9px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      background: var(--green);
+      color: white;
+    }
+    .btn-gotit:active { opacity: 0.75; }
   </style>
 </head>
 <body style="display:flex;flex-direction:column;min-height:100dvh">
@@ -207,7 +220,7 @@
     <div style="font-size:28px;margin-bottom:12px">🔔</div>
     <h2 style="font-size:18px;margin-bottom:10px">Enable order notifications</h2>
     <p style="font-size:14px;color:var(--muted);margin-bottom:24px">Allow notifications so new orders alert you even when this tab is in the background.</p>
-    <button onclick="OneSignalManager.requestPermission().then(closeOsDialog)" style="width:100%;padding:13px;background:var(--brand);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer">Got it</button>
+    <button onclick="OneSignalManager.requestPermission().then(closeOsDialog)" style="width:100%;padding:13px;background:var(--brand);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer">Enable Notifications</button>
   </div>
 </div>
 
@@ -397,22 +410,6 @@
     updateEmpty();
     updateDayBar();
     if (!watchMode) announceOrder(order);
-    // Acknowledge only when page is visible — cancels pending repeat push notifications
-    const ackOrder = () => fetch('/api/ack', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: order.id }),
-    }).catch(() => {});
-    if (document.visibilityState === 'visible') {
-      ackOrder();
-    } else {
-      document.addEventListener('visibilitychange', function ackOnVisible() {
-        if (document.visibilityState === 'visible') {
-          ackOrder();
-          document.removeEventListener('visibilitychange', ackOnVisible);
-        }
-      });
-    }
   }
 
   // ── Render a card ──
@@ -442,7 +439,7 @@
         <span>£${order.total.toFixed(2)}</span>
       </div>
       <div class="card-actions">
-        <button class="btn-dismiss" onclick="dismissOrder('${order.id}')">Dismiss</button>
+        ${prepend ? `<button class="btn-gotit" onclick="gotItOrder('${order.id}')">Got it</button>` : `<button class="btn-dismiss" onclick="dismissOrder('${order.id}')">Dismiss</button>`}
       </div>
     `;
 
@@ -459,6 +456,15 @@
     const c = document.getElementById('orders-container');
     if (hasOrders) c.classList.add('has-orders');
     else c.classList.remove('has-orders');
+  }
+
+  function gotItOrder(id) {
+    fetch('/api/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => {});
+    dismissOrder(id);
   }
 
   function dismissOrder(id) {
