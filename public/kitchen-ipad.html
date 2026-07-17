@@ -397,12 +397,22 @@
     updateEmpty();
     updateDayBar();
     if (!watchMode) announceOrder(order);
-    // Acknowledge — cancels pending repeat push notifications
-    fetch('/api/ack', {
+    // Acknowledge only when page is visible — cancels pending repeat push notifications
+    const ackOrder = () => fetch('/api/ack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: order.id }),
     }).catch(() => {});
+    if (document.visibilityState === 'visible') {
+      ackOrder();
+    } else {
+      document.addEventListener('visibilitychange', function ackOnVisible() {
+        if (document.visibilityState === 'visible') {
+          ackOrder();
+          document.removeEventListener('visibilitychange', ackOnVisible);
+        }
+      });
+    }
   }
 
   // ── Render a card ──
