@@ -25,6 +25,27 @@ export default async function handler(req, res) {
     }
     const score = new Date(order.timestamp).getTime();
     await kv(['ZADD', 'hh:orders', score, JSON.stringify(order)]);
+
+    // Push notification to kitchen screen via OneSignal (fire-and-forget)
+    const osKey = process.env.ONESIGNAL_REST_API_KEY;
+    if (osKey) {
+      const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
+      fetch('https://onesignal.com/api/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${osKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          app_id: '0650da8c-1bca-42ec-8a3c-9274d2a20c70',
+          included_segments: ['All'],
+          headings: { en: 'New Order' },
+          contents: { en: `${order.name} — ${itemCount} item${itemCount !== 1 ? 's' : ''} — £${order.total.toFixed(2)}` },
+          url: 'https://bgchut.vercel.app/kitchen-ipad.html',
+        }),
+      }).catch(() => {});
+    }
+
     return res.status(200).json({ ok: true });
   }
 
