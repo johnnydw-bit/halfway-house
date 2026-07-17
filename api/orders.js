@@ -38,15 +38,18 @@ export default async function handler(req, res) {
         url: 'https://bgchut.vercel.app/kitchen-ipad.html',
         priority: 10,
       });
-      const push = (delaySecs) => fetch('https://onesignal.com/api/v1/notifications', {
+      const basePayload = JSON.parse(payload);
+      const push = (delaySecs, reminder) => fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
         headers: { 'Authorization': `Key ${osKey}`, 'Content-Type': 'application/json' },
-        body: delaySecs
-          ? JSON.stringify({ ...JSON.parse(payload), send_after: new Date(Date.now() + delaySecs * 1000).toISOString() })
-          : payload,
+        body: JSON.stringify({
+          ...basePayload,
+          headings: { en: reminder ? '🔔 REMINDER — Order waiting' : basePayload.headings.en },
+          ...(delaySecs ? { send_after: new Date(Date.now() + delaySecs * 1000).toISOString() } : {}),
+        }),
       }).catch(() => {});
-      push(0);
-      push(5);
+      push(0, false);
+      push(10, true);
     }
 
     return res.status(200).json({ ok: true });
