@@ -369,25 +369,26 @@
     document.getElementById('os-dialog').style.display = 'none';
   }
 
-  async function initOneSignal() {
-    await OneSignalManager.init();
-    const shown = localStorage.getItem('os_permission_shown');
-    function checkSubscription(id) {
-      if (!shown && (OneSignalManager.isRegistered(id) || Notification.permission === 'default')) {
-        localStorage.setItem('os_permission_shown', '1');
-        showOsDialog();
-      }
+  // Initialise OneSignal immediately (queued via OneSignalDeferred before SDK fires)
+  OneSignalManager.init();
+  OneSignalManager.addSubscriptionChangeListener(e => {
+    if (OneSignalManager.isRegistered(e.current?.id) && !localStorage.getItem('os_permission_shown')) {
+      localStorage.setItem('os_permission_shown', '1');
+      showOsDialog();
     }
-    OneSignalManager.addSubscriptionChangeListener(e => checkSubscription(e.current?.id));
-    checkSubscription(OneSignalManager.getSubscriptionId());
-  }
+  });
 
   window.addEventListener('DOMContentLoaded', () => {
     orders.forEach(o => renderOrderCard(o, false));
     updateEmpty();
     updateDayBar();
     scheduleSunsetSummary();
-    initOneSignal();
+
+    // Show permission dialog on first visit if not yet granted
+    if (!localStorage.getItem('os_permission_shown') && Notification.permission === 'default') {
+      localStorage.setItem('os_permission_shown', '1');
+      showOsDialog();
+    }
   });
 
   // ── Receive new order ──

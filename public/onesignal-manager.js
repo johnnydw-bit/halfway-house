@@ -2,22 +2,23 @@
 const ONESIGNAL_APP_ID = '0650da8c-1bca-42ec-8a3c-9274d2a20c70';
 
 const OneSignalManager = {
-  async init() {
-    await window.OneSignalDeferred.push(async (os) => {
-      await os.init({
+  init() {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
         appId: ONESIGNAL_APP_ID,
-        serviceWorkerPath: '/OneSignalSDKWorker.js',
         notifyButton: { enable: false },
+        serviceWorkerParam: { scope: '/' },
       });
     });
   },
 
   async requestPermission() {
-    return OneSignal.Notifications.requestPermission();
+    return window.OneSignal.Notifications.requestPermission();
   },
 
   getSubscriptionId() {
-    return OneSignal.User.PushSubscription.id;
+    return window.OneSignal?.User?.PushSubscription?.id;
   },
 
   isRegistered(id) {
@@ -25,6 +26,9 @@ const OneSignalManager = {
   },
 
   addSubscriptionChangeListener(handler) {
-    OneSignal.User.PushSubscription.addEventListener('change', handler);
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(function(OneSignal) {
+      OneSignal.User.PushSubscription.addEventListener('change', handler);
+    });
   },
 };
