@@ -372,8 +372,7 @@
   // Initialise OneSignal immediately (queued via OneSignalDeferred before SDK fires)
   OneSignalManager.init();
   OneSignalManager.addSubscriptionChangeListener(e => {
-    if (OneSignalManager.isRegistered(e.current?.id) && !localStorage.getItem('os_permission_shown')) {
-      localStorage.setItem('os_permission_shown', '1');
+    if (!OneSignalManager.isRegistered(e.current?.id)) {
       showOsDialog();
     }
   });
@@ -384,9 +383,8 @@
     updateDayBar();
     scheduleSunsetSummary();
 
-    // Show permission dialog on first visit if not yet granted
-    if (!localStorage.getItem('os_permission_shown') && Notification.permission === 'default') {
-      localStorage.setItem('os_permission_shown', '1');
+    // Show permission dialog if notifications not yet granted
+    if (Notification.permission !== 'granted') {
       showOsDialog();
     }
   });
