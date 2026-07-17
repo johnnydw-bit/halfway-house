@@ -26,44 +26,24 @@ export default async function handler(req, res) {
     const score = new Date(order.timestamp).getTime();
     await kv(['ZADD', 'hh:orders', score, JSON.stringify(order)]);
 
-    // Schedule 5 push notifications in parallel (0, 10, 20, 30, 40 s) — ack cancels pending ones
+    // Send one push notification to wake the screen — page handles repeated chiming until Got it
     const osKey = process.env.ONESIGNAL_REST_API_KEY;
     if (osKey) {
       const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
-      const headings = [
-        '🔔 NEW ORDER — Action required',
-        '🔔 REMINDER — Order waiting',
-        '⚠️ URGENT — Order not acknowledged',
-        '⚠️ URGENT — Order not acknowledged',
-        '⚠️ URGENT — Order not acknowledged',
-      ];
-      const sendPush = async (i) => {
-        const body = {
-          app_id: '0650da8c-1bca-42ec-8a3c-9274d2a20c70',
-          included_segments: ['All'],
-          headings: { en: headings[i] },
-          contents: { en: `${order.name} · ${itemCount} item${itemCount !== 1 ? 's' : ''} · £${order.total.toFixed(2)}` },
-          url: 'https://bgchut.vercel.app/kitchen-ipad.html',
-          priority: 10,
-          web_push_topic: `${order.id}-${i}`,
-        };
-        if (i > 0) body.send_after = new Date(Date.now() + i * 10000).toISOString();
-        try {
-          const r = await fetch('https://onesignal.com/api/v1/notifications', {
-            method: 'POST',
-            headers: { 'Authorization': `Key ${osKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-          });
-          const data = await r.json();
-          return data.id || null;
-        } catch { return null; }
-      };
-
-      // Fire all 5 in parallel, store IDs for cancellation
-      const notifIds = (await Promise.all([0,1,2,3,4].map(sendPush))).filter(Boolean);
-      if (notifIds.length) {
-        await kv(['SET', `hh:notifs:${order.id}`, JSON.stringify(notifIds), 'EX', 300]);
-      }
+      try {
+        await fetch('https://onesignal.com/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Authorization': `Key ${osKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            app_id: '0650da8c-1bca-42ec-8a3c-9274d2a20c70',
+            included_segments: ['All'],
+            headings: { en: '🔔 NEW ORDER' },
+            contents: { en: `${order.name} · ${itemCount} item${itemCount !== 1 ? 's' : ''} · £${order.total.toFixed(2)}` },
+            url: 'https://bgchut.vercel.app/kitchen-ipad.html',
+            priority: 10,
+          }),
+        });
+      } catch {}
     }
 
     return res.status(200).json({ ok: true });

@@ -402,6 +402,9 @@
     }
   });
 
+  // ── Per-order chime intervals (cleared when Got it is tapped) ──
+  const chimeIntervals = {};
+
   // ── Receive new order ──
   function receiveOrder(order) {
     orders.unshift(order);
@@ -409,7 +412,10 @@
     renderOrderCard(order, true);
     updateEmpty();
     updateDayBar();
-    if (!watchMode) announceOrder(order);
+    if (!watchMode) {
+      announceOrder();
+      chimeIntervals[order.id] = setInterval(announceOrder, 10000);
+    }
   }
 
   // ── Render a card ──
@@ -459,6 +465,8 @@
   }
 
   function gotItOrder(id) {
+    clearInterval(chimeIntervals[id]);
+    delete chimeIntervals[id];
     fetch('/api/ack', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
