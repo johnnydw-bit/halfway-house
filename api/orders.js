@@ -45,6 +45,7 @@ export default async function handler(req, res) {
           contents: { en: `${order.name} · ${itemCount} item${itemCount !== 1 ? 's' : ''} · £${order.total.toFixed(2)}` },
           url: 'https://bgchut.vercel.app/kitchen-ipad.html',
           priority: 10,
+          web_push_topic: `${order.id}-${i}`,
         };
         if (i > 0) body.send_after = new Date(Date.now() + i * 10000).toISOString();
         try {
