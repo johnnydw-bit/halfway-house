@@ -38,13 +38,15 @@ export default async function handler(req, res) {
         url: 'https://bgchut.vercel.app/kitchen-ipad.html',
         priority: 10,
       });
-      const pushOnce = () => fetch('https://onesignal.com/api/v1/notifications', {
+      const push = (delaySecs) => fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
         headers: { 'Authorization': `Key ${osKey}`, 'Content-Type': 'application/json' },
-        body: payload,
+        body: delaySecs
+          ? JSON.stringify({ ...JSON.parse(payload), send_after: new Date(Date.now() + delaySecs * 1000).toISOString() })
+          : payload,
       }).catch(() => {});
-      pushOnce();
-      setTimeout(pushOnce, 4000);
+      push(0);
+      push(5);
     }
 
     return res.status(200).json({ ok: true });
