@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const score = new Date(order.timestamp).getTime();
     await kv(['ZADD', 'hh:orders', score, JSON.stringify(order)]);
 
-    // Schedule 5 push notifications (0, 10, 20, 30, 40 s) — kitchen ack cancels pending ones
+    // Schedule 5 push notifications in parallel (0, 10, 20, 30, 40 s) — ack cancels pending ones
     const osKey = process.env.ONESIGNAL_REST_API_KEY;
     if (osKey) {
       const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
@@ -37,8 +37,7 @@ export default async function handler(req, res) {
         '⚠️ URGENT — Order not acknowledged',
         '⚠️ URGENT — Order not acknowledged',
       ];
-      const notifIds = [];
-      for (let i = 0; i < 5; i++) {
+      const sendPush = async (i) => {
         const body = {
           app_id: '0650da8c-1bca-42ec-8a3c-9274d2a20c70',
           included_segments: ['All'],
@@ -55,10 +54,12 @@ export default async function handler(req, res) {
             body: JSON.stringify(body),
           });
           const data = await r.json();
-          if (data.id) notifIds.push(data.id);
-        } catch {}
-      }
-      // Store notification IDs in Redis so ack endpoint can cancel them
+          return data.id || null;
+        } catch { return null; }
+      };
+
+      // Fire all 5 in parallel, store IDs for cancellation
+      const notifIds = (await Promise.all([0,1,2,3,4].map(sendPush))).filter(Boolean);
       if (notifIds.length) {
         await kv(['SET', `hh:notifs:${order.id}`, JSON.stringify(notifIds), 'EX', 300]);
       }
