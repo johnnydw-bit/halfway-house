@@ -339,16 +339,14 @@
   }
 
   // ── Init ──
-  // Unlock speech synthesis on first user gesture — required by Chrome/Safari
-  let speechUnlocked = false;
-  function unlockSpeech() {
-    if (speechUnlocked) return;
-    speechUnlocked = true;
-    const utt = new SpeechSynthesisUtterance('');
-    speechSynthesis.speak(utt);
+  // Unlock Web Audio on first user gesture — required by Safari/Chrome
+  let audioCtx = null;
+  function unlockAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  document.addEventListener('click', unlockSpeech, { once: true });
-  document.addEventListener('touchstart', unlockSpeech, { once: true });
+  document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('touchstart', unlockAudio, { once: true });
 
   window.addEventListener('DOMContentLoaded', () => {
     orders.forEach(o => renderOrderCard(o, false));
@@ -431,18 +429,24 @@
   }
 
   // ── Voice announcement ──
-  function announceOrder(order) {
-    if (!window.speechSynthesis) return;
-    const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
-    const msg = `New order from ${order.name}. ${itemCount} item${itemCount !== 1 ? 's' : ''}. Total £${order.total.toFixed(2)}.`;
-    speechSynthesis.cancel();
-    // Brief pause after cancel — skipping it causes the utterance to be silently dropped
-    setTimeout(() => {
-      const utt = new SpeechSynthesisUtterance(msg);
-      utt.rate = 0.95;
-      utt.volume = 1;
-      speechSynthesis.speak(utt);
-    }, 150);
+  function announceOrder() {
+    if (!audioCtx) return;
+    // Two-tone doorbell chime
+    const notes = [880, 660];
+    notes.forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const start = audioCtx.currentTime + i * 0.25;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.5, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+      osc.start(start);
+      osc.stop(start + 0.5);
+    });
   }
 </script>
 </body>
