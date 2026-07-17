@@ -26,30 +26,42 @@ export default async function handler(req, res) {
     const score = new Date(order.timestamp).getTime();
     await kv(['ZADD', 'hh:orders', score, JSON.stringify(order)]);
 
-    // Push notification to kitchen screen via OneSignal (fire-and-forget, sent twice 4s apart)
+    // Schedule 5 push notifications (0, 10, 20, 30, 40 s) — kitchen ack cancels pending ones
     const osKey = process.env.ONESIGNAL_REST_API_KEY;
     if (osKey) {
       const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
-      const payload = JSON.stringify({
-        app_id: '0650da8c-1bca-42ec-8a3c-9274d2a20c70',
-        included_segments: ['All'],
-        headings: { en: '🔔 NEW ORDER — Action required' },
-        contents: { en: `${order.name} · ${itemCount} item${itemCount !== 1 ? 's' : ''} · £${order.total.toFixed(2)}` },
-        url: 'https://bgchut.vercel.app/kitchen-ipad.html',
-        priority: 10,
-      });
-      const basePayload = JSON.parse(payload);
-      const push = (delaySecs, reminder) => fetch('https://onesignal.com/api/v1/notifications', {
-        method: 'POST',
-        headers: { 'Authorization': `Key ${osKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...basePayload,
-          headings: { en: reminder ? '🔔 REMINDER — Order waiting' : basePayload.headings.en },
-          ...(delaySecs ? { send_after: new Date(Date.now() + delaySecs * 1000).toISOString() } : {}),
-        }),
-      }).catch(() => {});
-      push(0, false);
-      push(10, true);
+      const headings = [
+        '🔔 NEW ORDER — Action required',
+        '🔔 REMINDER — Order waiting',
+        '⚠️ URGENT — Order not acknowledged',
+        '⚠️ URGENT — Order not acknowledged',
+        '⚠️ URGENT — Order not acknowledged',
+      ];
+      const notifIds = [];
+      for (let i = 0; i < 5; i++) {
+        const body = {
+          app_id: '0650da8c-1bca-42ec-8a3c-9274d2a20c70',
+          included_segments: ['All'],
+          headings: { en: headings[i] },
+          contents: { en: `${order.name} · ${itemCount} item${itemCount !== 1 ? 's' : ''} · £${order.total.toFixed(2)}` },
+          url: 'https://bgchut.vercel.app/kitchen-ipad.html',
+          priority: 10,
+        };
+        if (i > 0) body.send_after = new Date(Date.now() + i * 10000).toISOString();
+        try {
+          const r = await fetch('https://onesignal.com/api/v1/notifications', {
+            method: 'POST',
+            headers: { 'Authorization': `Key ${osKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const data = await r.json();
+          if (data.id) notifIds.push(data.id);
+        } catch {}
+      }
+      // Store notification IDs in Redis so ack endpoint can cancel them
+      if (notifIds.length) {
+        await kv(['SET', `hh:notifs:${order.id}`, JSON.stringify(notifIds), 'EX', 300]);
+      }
     }
 
     return res.status(200).json({ ok: true });

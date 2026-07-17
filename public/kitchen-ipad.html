@@ -397,6 +397,12 @@
     updateEmpty();
     updateDayBar();
     if (!watchMode) announceOrder(order);
+    // Acknowledge — cancels pending repeat push notifications
+    fetch('/api/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: order.id }),
+    }).catch(() => {});
   }
 
   // ── Render a card ──
