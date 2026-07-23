@@ -252,11 +252,20 @@
 
   // ── Order state ──
   const STORAGE_KEY = 'halfway_orders_ipad';
+  const DISMISSED_KEY = 'halfway_dismissed_ipad';
   let orders = [];
   try { orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
 
+  // Dismissed IDs persist across reloads so fulfilled orders don't reappear
+  const dismissedIds = new Set();
+  try { JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]').forEach(id => dismissedIds.add(id)); } catch {}
+
   function saveOrders() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  }
+
+  function saveDismissed() {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissedIds]));
   }
 
   // ── Polling ──
@@ -275,7 +284,7 @@
       if (!res.ok) return;
       const { orders: fresh } = await res.json();
       for (const order of fresh) {
-        if (seenIds.has(order.id)) continue;
+        if (seenIds.has(order.id) || dismissedIds.has(order.id)) continue;
         seenIds.add(order.id);
         lastSeen = Math.max(lastSeen, new Date(order.timestamp).getTime());
         lastOrderAt = Date.now();
@@ -468,6 +477,8 @@
   }
 
   function dismissOrder(id) {
+    dismissedIds.add(id);
+    saveDismissed();
     orders = orders.filter(o => o.id !== id);
     saveOrders();
     updateDayBar();
