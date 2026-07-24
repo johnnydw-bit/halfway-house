@@ -300,7 +300,11 @@
   const STORAGE_KEY = 'halfway_orders_ipad';
   const DISMISSED_KEY = 'halfway_dismissed_ipad';
   let orders = [];
-  try { orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    orders = (JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'))
+      .filter(o => o.timestamp && o.timestamp.slice(0, 10) === today);
+  } catch {}
 
   // Dismissed IDs persist across reloads so fulfilled orders don't reappear
   const dismissedIds = new Set();
