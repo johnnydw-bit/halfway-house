@@ -204,14 +204,27 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.2 iPad</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.3 iPad</span></p>
     </div>
   </div>
+  <button onclick="showModeDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer" id="mode-btn">⚙️ Mode</button>
 </header>
 
 <div id="day-bar">
   <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
   <span id="poll-status" style="font-size:11px;color:var(--muted)"></span>
+</div>
+
+<!-- Mode selector dialog -->
+<div id="mode-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:2px solid var(--brand);border-radius:18px;padding:28px 32px;max-width:380px;width:90%;text-align:center">
+    <div style="font-size:28px;margin-bottom:12px">⚙️</div>
+    <h2 style="font-size:18px;margin-bottom:10px">Kitchen Mode</h2>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:24px">Choose how this iPad handles orders.</p>
+    <button onclick="setMode('ipad')" id="mode-ipad-btn" style="width:100%;padding:13px;margin-bottom:10px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">📱 iPad only<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Display orders on screen, no printing</span></button>
+    <button onclick="setMode('ipad+phone')" id="mode-phone-btn" style="width:100%;padding:13px;margin-bottom:20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">🖨️ iPad + Phone printer<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Send orders to phone for BLE printing</span></button>
+    <button onclick="closeModeDialog()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer">Close</button>
+  </div>
 </div>
 
 <!-- OneSignal verification / permission dialog -->
@@ -383,6 +396,44 @@
   document.addEventListener('click', unlockAudio, { once: true });
   document.addEventListener('touchstart', unlockAudio, { once: true });
 
+  // ── Kitchen mode ──
+  const MODE_KEY = 'hh_kitchen_mode';
+  let kitchenMode = localStorage.getItem(MODE_KEY) || 'ipad';
+
+  function updateModeBtn() {
+    document.getElementById('mode-btn').textContent = kitchenMode === 'ipad+phone' ? '🖨️ Mode' : '⚙️ Mode';
+  }
+
+  function showModeDialog() {
+    const ipadBtn  = document.getElementById('mode-ipad-btn');
+    const phoneBtn = document.getElementById('mode-phone-btn');
+    const active   = 'border:2px solid var(--brand-light);background:var(--brand);color:white';
+    const inactive = 'border:2px solid var(--border);background:var(--surface2);color:var(--text)';
+    ipadBtn.style.cssText  += ';' + (kitchenMode === 'ipad'       ? active : inactive);
+    phoneBtn.style.cssText += ';' + (kitchenMode === 'ipad+phone' ? active : inactive);
+    document.getElementById('mode-dialog').style.display = 'flex';
+  }
+
+  function closeModeDialog() {
+    document.getElementById('mode-dialog').style.display = 'none';
+  }
+
+  function setMode(mode) {
+    kitchenMode = mode;
+    localStorage.setItem(MODE_KEY, mode);
+    updateModeBtn();
+    closeModeDialog();
+  }
+
+  function queuePrintJob(order) {
+    if (kitchenMode !== 'ipad+phone') return;
+    fetch('/api/printjob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order }),
+    }).catch(() => {});
+  }
+
   // ── OneSignal push subscription ──
   function showOsDialog() {
     document.getElementById('os-dialog').style.display = 'flex';
@@ -403,6 +454,7 @@
     orders.forEach(o => renderOrderCard(o, false));
     updateEmpty();
     updateDayBar();
+    updateModeBtn();
     scheduleSunsetSummary();
 
     // Show permission dialog if notifications not yet granted
@@ -419,6 +471,7 @@
     updateEmpty();
     updateDayBar();
     if (!watchMode) announceOrder(order);
+    queuePrintJob(order);
   }
 
   // ── Render a card ──

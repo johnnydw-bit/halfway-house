@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2c2757">
+  <title>Print Bridge — Bramley Halfway House</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1c1f2b; --brand: #2c2757; --brand-light: #4a449e;
+      --green: #27ae60; --amber: #f39c12; --red: #e74c3c;
+      --text: #f0f0f0; --muted: #8a8fa8; --border: #2e3347;
+    }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+    header { background: var(--surface); padding: 12px 16px; border-bottom: 3px solid var(--brand); display: flex; align-items: center; gap: 12px; }
+    header img { height: 36px; background: white; border-radius: 4px; padding: 2px; }
+    header h1 { font-size: 17px; font-weight: 700; }
+    header p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    #status-bar {
+      padding: 12px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    #bt-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #bt-dot.connected  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    #bt-dot.connecting { background: var(--amber); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #bt-label { font-size: 14px; font-weight: 600; flex: 1; }
+    #poll-status { font-size: 11px; color: var(--muted); }
+
+    .btn {
+      display: block; width: calc(100% - 32px); margin: 16px auto 0;
+      padding: 15px; border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      background: var(--brand); color: white;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn.secondary { background: var(--surface); border: 1px solid var(--border); color: var(--muted); margin-top: 10px; font-size: 14px; }
+
+    #job-list { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .job-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .job-card .job-name { font-weight: 700; font-size: 15px; }
+    .job-card .job-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .job-card .job-badge {
+      font-size: 11px; font-weight: 700; padding: 4px 8px;
+      border-radius: 6px; background: var(--amber); color: #000;
+    }
+    .job-card .job-badge.printed { background: var(--green); color: white; }
+
+    #debug-log {
+      background: #111; color: #0f0; font-size: 11px; font-family: monospace;
+      padding: 8px 12px; word-break: break-all; white-space: pre-wrap;
+      max-height: 160px; overflow-y: auto; margin: 12px 16px; border-radius: 8px;
+    }
+
+    #no-bt { margin: 20px 16px; padding: 14px; background: var(--red); border-radius: 10px; font-size: 14px; display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="/logo.jpg" alt="Bramley GC">
+  <div>
+    <h1>Print Bridge</h1>
+    <p>Bramley Halfway House &nbsp;·&nbsp; Android Chrome only</p>
+  </div>
+</header>
+
+<div id="status-bar">
+  <span id="bt-dot"></span>
+  <span id="bt-label">Not connected</span>
+  <span id="poll-status"></span>
+</div>
+
+<div id="no-bt">⚠️ Web Bluetooth is not available. Use Chrome on Android.</div>
+
+<button class="btn" id="connect-btn" onclick="connectBluetooth()">Connect Printer</button>
+<button class="btn secondary" id="test-btn" onclick="testPrint()" style="display:none">Test Print</button>
+
+<div id="job-list"></div>
+<div id="debug-log"></div>
+
+<script>
+  let btCharacteristic = null;
+  let printedIds = new Set();
+
+  const BT_PROFILES = [
+    { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb', notify: '00002af0-0000-1000-8000-00805f9b34fb' },
+    { service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', notify: null },
+    { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3', notify: '49535343-1e4d-4bd9-ba61-23c647249616' },
+  ];
+
+  function dbg(msg) {
+    const el = document.getElementById('debug-log');
+    el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setStatus(label, dotClass) {
+    document.getElementById('bt-label').textContent = label;
+    document.getElementById('bt-dot').className = dotClass || '';
+  }
+
+  async function connectBluetooth() {
+    if (!navigator.bluetooth) return;
+    setStatus('Connecting…', 'connecting');
+    dbg('Starting BT connect…');
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BT_PROFILES.map(p => p.service),
+      });
+      dbg('Device: ' + (device.name || 'unnamed'));
+      const server = await device.gatt.connect();
+      dbg('GATT connected');
+      device.addEventListener('gattserverdisconnected', onDisconnected);
+
+      let connected = false;
+      for (const profile of BT_PROFILES) {
+        const idx = BT_PROFILES.indexOf(profile);
+        try {
+          dbg('Trying profile ' + idx + '…');
+          const service = await server.getPrimaryService(profile.service);
+          btCharacteristic = await service.getCharacteristic(profile.char);
+          if (profile.notify) {
+            try {
+              const n = await service.getCharacteristic(profile.notify);
+              await n.startNotifications();
+              n.addEventListener('characteristicvaluechanged', e => {
+                const hex = Array.from(new Uint8Array(e.target.value.buffer)).map(b => b.toString(16).padStart(2,'0')).join(' ');
+                dbg('Notify: ' + hex);
+              });
+            } catch (e) { dbg('Notify failed: ' + e.message); }
+          }
+          connected = true;
+          dbg('Connected on profile ' + idx);
+          break;
+        } catch (e) { dbg('P' + idx + ' failed: ' + e.message); }
+      }
+
+      if (!connected) throw new Error('No profile matched');
+      setStatus((device.name || 'Printer') + ' ✓', 'connected');
+      document.getElementById('test-btn').style.display = 'block';
+    } catch (err) {
+      dbg('Error: ' + err.message);
+      setStatus('Connect Printer', '');
+      if (err.name !== 'NotFoundError') alert('Bluetooth error: ' + err.message);
+    }
+  }
+
+  function onDisconnected() {
+    btCharacteristic = null;
+    setStatus('Disconnected — tap to reconnect', '');
+    document.getElementById('test-btn').style.display = 'none';
+    dbg('Disconnected');
+  }
+
+  async function sendBytes(data) {
+    const CHUNK = 100;
+    for (let i = 0; i < data.length; i += CHUNK) {
+      const chunk = data.slice(i, i + CHUNK);
+      try { await btCharacteristic.writeValueWithoutResponse(chunk); }
+      catch { await btCharacteristic.writeValue(chunk); }
+      await new Promise(r => setTimeout(r, 40));
+    }
+  }
+
+  async function testPrint() {
+    if (!btCharacteristic) { alert('Connect printer first.'); return; }
+    dbg('Test print…');
+    try {
+      await sendBytes(new Uint8Array([0x1b, 0x40, 0x0a, 0x0a, 0x0a]));
+      dbg('Test print sent');
+    } catch (err) { dbg('Test print error: ' + err.message); }
+  }
+
+  function buildEscPos(order) {
+    const W = 32;
+    const b = [];
+    const push = (...bytes) => b.push(...bytes);
+    const text = s => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
+    const line = (s = '') => { text(s); push(0x0a); };
+    const hr = (ch = '=') => line(ch.repeat(W));
+    const right = (l, r) => { const gap = W - l.length - r.length; line(l + ' '.repeat(Math.max(1, gap)) + r); };
+
+    push(0x1b, 0x40);
+    push(0x1b, 0x61, 0x01);
+    push(0x1b, 0x45, 0x01, 0x1b, 0x21, 0x10);
+    line('HALFWAY HOUSE');
+    push(0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00);
+    line('Bramley Golf Club');
+    push(0x1b, 0x61, 0x00);
+    hr('=');
+    line('Name:   ' + order.name.substring(0, 22));
+    if (order.membership) line('Member: ' + order.membership);
+    const t = new Date(order.timestamp);
+    line('Time:   ' + t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+    hr('-');
+    for (const item of order.items) {
+      right(`${item.qty}x ${item.name}`.substring(0, 24), `£${(item.qty * item.price).toFixed(2)}`);
+    }
+    hr('-');
+    push(0x1b, 0x45, 0x01);
+    right('TOTAL', `£${order.total.toFixed(2)}`);
+    push(0x1b, 0x45, 0x00);
+    hr('=');
+    line(); line(); line();
+    return new Uint8Array(b);
+  }
+
+  function renderJob(order, printed) {
+    const list = document.getElementById('job-list');
+    const existing = document.getElementById('job-' + order.id);
+    if (existing) {
+      existing.querySelector('.job-badge').textContent = printed ? 'Printed ✓' : 'Pending';
+      existing.querySelector('.job-badge').className = 'job-badge' + (printed ? ' printed' : '');
+      return;
+    }
+    const t = new Date(order.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const itemCount = order.items.reduce((s, i) => s + i.qty, 0);
+    const card = document.createElement('div');
+    card.className = 'job-card';
+    card.id = 'job-' + order.id;
+    card.innerHTML = `
+      <div>
+        <div class="job-name">${esc(order.name)}</div>
+        <div class="job-meta">${t} · ${itemCount} item${itemCount !== 1 ? 's' : ''} · £${order.total.toFixed(2)}</div>
+      </div>
+      <span class="job-badge${printed ? ' printed' : ''}">${printed ? 'Printed ✓' : 'Pending'}</span>
+    `;
+    list.insertBefore(card, list.firstChild);
+  }
+
+  async function pollAndPrint() {
+    try {
+      const res = await fetch('/api/printjob', { cache: 'no-store' });
+      if (!res.ok) return;
+      const { jobs } = await res.json();
+      document.getElementById('poll-status').textContent = 'polling';
+      for (const order of jobs) {
+        renderJob(order, printedIds.has(order.id));
+        if (printedIds.has(order.id)) continue;
+        if (!btCharacteristic) { dbg('Job ' + order.id + ' waiting — printer not connected'); continue; }
+        dbg('Printing ' + order.id + '…');
+        try {
+          await sendBytes(buildEscPos(order));
+          dbg('Printed ' + order.id);
+          printedIds.add(order.id);
+          renderJob(order, true);
+          // Remove from server queue
+          await fetch('/api/printjob', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: order.id }),
+          });
+        } catch (err) { dbg('Print error: ' + err.message); }
+      }
+    } catch (err) { dbg('Poll error: ' + err.message); }
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  if (!navigator.bluetooth) {
+    document.getElementById('no-bt').style.display = 'block';
+    document.getElementById('connect-btn').style.display = 'none';
+  }
+
+  setInterval(pollAndPrint, 3000);
+  pollAndPrint();
+</script>
+</body>
+</html>
