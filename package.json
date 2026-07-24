@@ -1,0 +1,11 @@
+{
+  "type": "module",
+  "devDependencies": {
+    "jimp": "^1.6.1",
+    "qrcode": "^1.5.4"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "pdfkit": "^0.19.1"
+  }
+}

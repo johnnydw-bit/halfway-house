@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2c2757">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Kitchen — Bramley Halfway House</title>
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>window.OneSignalDeferred = window.OneSignalDeferred || [];</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1c1f2b;
+      --surface2: #252836;
+      --brand: #2c2757;
+      --brand-light: #4a449e;
+      --amber: #f39c12;
+      --green: #27ae60;
+      --red: #e74c3c;
+      --text: #f0f0f0;
+      --muted: #8a8fa8;
+      --border: #2e3347;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--brand);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    header img { height: 36px; width: auto; background: white; border-radius: 4px; padding: 2px; }
+    header h1 { font-size: 17px; font-weight: 700; }
+    header p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Day summary bar ── */
+    #day-bar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 7px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    #day-bar strong { color: var(--text); }
+
+    /* ── End-of-day summary overlay ── */
+    #summary-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.75);
+      align-items: center; justify-content: center;
+    }
+    #summary-overlay.visible { display: flex; }
+    #summary-box {
+      background: var(--surface);
+      border: 2px solid var(--brand);
+      border-radius: 18px;
+      padding: 32px 36px;
+      max-width: 420px; width: 90%;
+      text-align: center;
+    }
+    #summary-box h2 { font-size: 22px; margin-bottom: 6px; }
+    #summary-box .sum-date { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    #summary-box .sum-stat { font-size: 42px; font-weight: 700; color: var(--brand-light); line-height: 1.1; }
+    #summary-box .sum-label { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+    #summary-box .sum-total { font-size: 32px; font-weight: 700; margin-bottom: 4px; }
+    #summary-box .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    #summary-box button {
+      margin-top: 24px;
+      padding: 12px 32px;
+      background: var(--brand);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ── Empty state ── */
+    #empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      flex: 1; padding: 40px;
+      text-align: center;
+    }
+    #empty-state .icon { font-size: 52px; margin-bottom: 16px; opacity: 0.4; }
+    #empty-state h2 { font-size: 18px; color: var(--muted); font-weight: 500; }
+    #empty-state p  { font-size: 13px; color: var(--muted); margin-top: 6px; opacity: 0.7; }
+
+    /* ── Order list ── */
+    #orders-container {
+      padding: 14px;
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #orders-container.has-orders { display: flex; }
+
+    /* ── Order card ── */
+    .order-card {
+      background: var(--surface);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(-12px); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
+    }
+
+    .card-header {
+      background: var(--brand);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .card-header .order-name { font-size: 16px; font-weight: 700; }
+    .card-header .order-time { font-size: 12px; opacity: 0.75; }
+
+    .card-meta {
+      padding: 8px 14px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .card-items { padding: 10px 14px; }
+    .card-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 15px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-item:last-child { border-bottom: none; }
+    .card-item .item-name { color: var(--text); }
+    .card-item .item-price { color: var(--muted); font-size: 14px; }
+
+    .card-total {
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 16px;
+      border-top: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .card-actions {
+      padding: 10px 14px;
+    }
+    .btn-dismiss {
+      width: 100%;
+      padding: 11px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      background: var(--surface2);
+      color: var(--muted);
+    }
+    .btn-dismiss:active { opacity: 0.75; }
+    .btn-gotit {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 9px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      background: var(--green);
+      color: white;
+    }
+    .btn-gotit:active { opacity: 0.75; }
+
+    /* ── BLE ── */
+    #bt-header { display: none; align-items: center; gap: 8px; }
+    #bt-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    #bt-dot.connected  { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    #bt-dot.connecting { background: var(--amber); animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #bt-connect-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 8px; padding: 6px 10px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    #debug-log {
+      background: #111; color: #0f0; font-size: 11px; font-family: monospace;
+      padding: 8px 12px; word-break: break-all; white-space: pre-wrap;
+      max-height: 120px; overflow-y: auto; display: none;
+    }
+    #bt-unsupported {
+      margin: 10px 14px 0; padding: 10px 14px;
+      background: var(--red); border-radius: 8px; font-size: 13px; display: none;
+    }
+  </style>
+</head>
+<body style="display:flex;flex-direction:column;min-height:100dvh">
+
+<header>
+  <div class="header-left">
+    <img src="/logo.jpg" alt="Bramley GC">
+    <div>
+      <h1>Kitchen</h1>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.4</span></p>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div id="bt-header">
+      <span id="bt-dot"></span>
+      <button id="bt-connect-btn" onclick="connectBluetooth()">Connect printer</button>
+    </div>
+    <button onclick="showModeDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer" id="mode-btn">⚙️ Mode</button>
+  </div>
+</header>
+<div id="bt-unsupported">⚠️ Web Bluetooth not available — use Chrome on Android for BLE printing.</div>
+<div id="debug-log"></div>
+
+<div id="day-bar">
+  <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
+  <span id="poll-status" style="font-size:11px;color:var(--muted)"></span>
+</div>
+
+<!-- Mode selector dialog -->
+<div id="mode-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:2px solid var(--brand);border-radius:18px;padding:28px 32px;max-width:380px;width:90%;text-align:center">
+    <div style="font-size:28px;margin-bottom:12px">⚙️</div>
+    <h2 style="font-size:18px;margin-bottom:10px">Kitchen Mode</h2>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:24px">Choose how this iPad handles orders.</p>
+    <button onclick="setMode('ipad')" id="mode-ipad-btn" style="width:100%;padding:13px;margin-bottom:10px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">📱 iPad only<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Display orders on screen, no printing</span></button>
+    <button onclick="setMode('ipad+phone')" id="mode-phone-btn" style="width:100%;padding:13px;margin-bottom:10px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">🖨️ iPad + Phone printer<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Send orders to phone for BLE printing</span></button>
+    <button onclick="setMode('android+ble')" id="mode-ble-btn" style="width:100%;padding:13px;margin-bottom:20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">🤖 Android + BLE printer<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Direct Bluetooth connection on this device</span></button>
+    <button onclick="closeModeDialog()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer">Close</button>
+  </div>
+</div>
+
+<!-- OneSignal verification / permission dialog -->
+<div id="os-dialog" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.75);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:2px solid var(--brand);border-radius:18px;padding:28px 32px;max-width:380px;width:90%;text-align:center">
+    <div style="font-size:28px;margin-bottom:12px">🔔</div>
+    <h2 style="font-size:18px;margin-bottom:10px">Enable order notifications</h2>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:24px">Allow notifications so new orders alert you even when this tab is in the background.</p>
+    <button onclick="OneSignalManager.requestPermission().then(closeOsDialog)" style="width:100%;padding:13px;background:var(--brand);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer">Enable Notifications</button>
+  </div>
+</div>
+
+<!-- End-of-day summary overlay -->
+<div id="summary-overlay">
+  <div id="summary-box">
+    <h2>End of Day Summary</h2>
+    <p class="sum-date" id="sum-date"></p>
+    <div class="sum-stat" id="sum-orders"></div>
+    <div class="sum-label">orders today</div>
+    <hr class="divider">
+    <div class="sum-total" id="sum-total"></div>
+    <div class="sum-label">total revenue</div>
+    <button onclick="closeSummary()">Close</button>
+  </div>
+</div>
+
+<div id="empty-state">
+  <div class="icon">🍽️</div>
+  <h2>Waiting for orders…</h2>
+  <p>Orders will appear here as golfers place them.</p>
+</div>
+
+<div id="orders-container"></div>
+
+<script src="/onesignal-manager.js"></script>
+<script>
+  const watchMode = new URLSearchParams(location.search).has('watch');
+
+  // ── Order state ──
+  const STORAGE_KEY = 'halfway_orders_ipad';
+  const DISMISSED_KEY = 'halfway_dismissed_ipad';
+  let orders = [];
+  try { orders = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch {}
+
+  // Dismissed IDs persist across reloads so fulfilled orders don't reappear
+  const dismissedIds = new Set();
+  try { JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]').forEach(id => dismissedIds.add(id)); } catch {}
+
+  function saveOrders() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  }
+
+  function saveDismissed() {
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...dismissedIds]));
+  }
+
+  // ── Polling ──
+  let lastSeen = orders.length
+    ? Math.max(...orders.map(o => new Date(o.timestamp).getTime()))
+    : Date.now() - 86400000;
+
+  const seenIds = new Set(orders.map(o => o.id));
+
+  let lastOrderAt = Date.now();
+  let tickCount = 0;
+
+  async function pollOrders() {
+    try {
+      const res = await fetch(`/api/orders?since=${lastSeen}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const { orders: fresh } = await res.json();
+      for (const order of fresh) {
+        if (seenIds.has(order.id) || dismissedIds.has(order.id)) continue;
+        seenIds.add(order.id);
+        lastSeen = Math.max(lastSeen, new Date(order.timestamp).getTime());
+        lastOrderAt = Date.now();
+        receiveOrder(order);
+      }
+    } catch {}
+  }
+
+  // setInterval is more resistant to browser throttling than chained setTimeout
+  setInterval(async () => {
+    tickCount++;
+    const idle = Date.now() - lastOrderAt > 60_000;
+    document.getElementById('poll-status').textContent = idle ? 'polling: 30 s' : 'polling: 3 s';
+    // When idle, only fetch every 10th tick (every ~30 s)
+    if (idle && tickCount % 10 !== 0) return;
+    await pollOrders();
+  }, 3000);
+
+  // Re-poll immediately when the page becomes visible again
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') pollOrders();
+  });
+
+  // ── Today's orders ──
+  function todayDateStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function todaysOrders() {
+    const today = todayDateStr();
+    return orders.filter(o => o.timestamp && o.timestamp.slice(0, 10) === today);
+  }
+
+  function updateDayBar() {
+    const todays = todaysOrders();
+    const total  = todays.reduce((s, o) => s + (o.total || 0), 0);
+    document.getElementById('day-orders').textContent = todays.length;
+    document.getElementById('day-total').textContent  = '£' + total.toFixed(2);
+  }
+
+  // ── End-of-day summary (screen only) ──
+  const SUMMARY_KEY = 'halfway_summary_shown_ipad';
+
+  function showDaySummary() {
+    const todays = todaysOrders();
+    const total  = todays.reduce((s, o) => s + (o.total || 0), 0);
+    const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    document.getElementById('sum-date').textContent   = dateStr;
+    document.getElementById('sum-orders').textContent = todays.length;
+    document.getElementById('sum-total').textContent  = '£' + total.toFixed(2);
+    document.getElementById('summary-overlay').classList.add('visible');
+    localStorage.setItem(SUMMARY_KEY, todayDateStr());
+  }
+
+  function closeSummary() {
+    document.getElementById('summary-overlay').classList.remove('visible');
+  }
+
+  async function scheduleSunsetSummary() {
+    if (localStorage.getItem(SUMMARY_KEY) === todayDateStr()) return;
+
+    let sunsetMs;
+    try {
+      const pos = await new Promise((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+      );
+      const { latitude, longitude } = pos.coords;
+      const resp = await fetch(
+        `https://api.sunrise-sunset.org/json?lat=${latitude}&lng=${longitude}&formatted=0`
+      );
+      const data = await resp.json();
+      sunsetMs = new Date(data.results.sunset).getTime();
+    } catch {
+      const d = new Date();
+      d.setHours(21, 0, 0, 0);
+      sunsetMs = d.getTime();
+    }
+
+    const delay = sunsetMs - Date.now();
+    if (delay > 0) {
+      setTimeout(() => {
+        if (localStorage.getItem(SUMMARY_KEY) !== todayDateStr()) {
+          showDaySummary();
+        }
+      }, delay);
+    }
+  }
+
+  // ── Init ──
+  // Unlock Web Audio on first user gesture — required by Safari/Chrome
+  let audioCtx = null;
+  function unlockAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('touchstart', unlockAudio, { once: true });
+
+  // ── Kitchen mode ──
+  const MODE_KEY = 'hh_kitchen_mode';
+  let kitchenMode = localStorage.getItem(MODE_KEY) || 'ipad';
+
+  function updateModeBtn() {
+    const labels = { 'ipad': '⚙️ Mode', 'ipad+phone': '🖨️ Mode', 'android+ble': '🤖 Mode' };
+    document.getElementById('mode-btn').textContent = labels[kitchenMode] || '⚙️ Mode';
+    const bleMode = kitchenMode === 'android+ble';
+    document.getElementById('bt-header').style.display = bleMode ? 'flex' : 'none';
+    if (bleMode && !navigator.bluetooth) {
+      document.getElementById('bt-unsupported').style.display = 'block';
+    } else {
+      document.getElementById('bt-unsupported').style.display = 'none';
+    }
+  }
+
+  function showModeDialog() {
+    const active   = 'border:2px solid var(--brand-light);background:var(--brand);color:white';
+    const inactive = 'border:2px solid var(--border);background:var(--surface2);color:var(--text)';
+    ['ipad', 'ipad+phone', 'android+ble'].forEach(m => {
+      const ids = { 'ipad': 'mode-ipad-btn', 'ipad+phone': 'mode-phone-btn', 'android+ble': 'mode-ble-btn' };
+      document.getElementById(ids[m]).style.cssText += ';' + (kitchenMode === m ? active : inactive);
+    });
+    document.getElementById('mode-dialog').style.display = 'flex';
+  }
+
+  function closeModeDialog() {
+    document.getElementById('mode-dialog').style.display = 'none';
+  }
+
+  function setMode(mode) {
+    kitchenMode = mode;
+    localStorage.setItem(MODE_KEY, mode);
+    updateModeBtn();
+    closeModeDialog();
+  }
+
+  function queuePrintJob(order) {
+    if (kitchenMode !== 'ipad+phone') return;
+    fetch('/api/printjob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order }),
+    }).catch(() => {});
+  }
+
+  // ── OneSignal push subscription ──
+  function showOsDialog() {
+    document.getElementById('os-dialog').style.display = 'flex';
+  }
+  function closeOsDialog() {
+    document.getElementById('os-dialog').style.display = 'none';
+  }
+
+  // Initialise OneSignal immediately (queued via OneSignalDeferred before SDK fires)
+  OneSignalManager.init();
+  OneSignalManager.addSubscriptionChangeListener(e => {
+    if (!OneSignalManager.isRegistered(e.current?.id)) {
+      showOsDialog();
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', () => {
+    orders.forEach(o => renderOrderCard(o, false));
+    updateEmpty();
+    updateDayBar();
+    updateModeBtn();
+    scheduleSunsetSummary();
+
+    // Show mode dialog on very first load; otherwise show notification prompt if needed
+    if (!localStorage.getItem(MODE_KEY)) {
+      showModeDialog();
+    } else if (kitchenMode !== 'android+ble' && Notification.permission !== 'granted') {
+      showOsDialog();
+    }
+  });
+
+  // ── Receive new order ──
+  function receiveOrder(order) {
+    orders.unshift(order);
+    saveOrders();
+    renderOrderCard(order, true);
+    updateEmpty();
+    updateDayBar();
+    if (!watchMode) announceOrder(order);
+    if (kitchenMode === 'android+ble') autoPrint(order);
+    else queuePrintJob(order);
+  }
+
+  // ── Render a card ──
+  function renderOrderCard(order, prepend) {
+    const container = document.getElementById('orders-container');
+    const time = new Date(order.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+    const card = document.createElement('div');
+    card.className = 'order-card';
+    card.id = 'order-' + order.id;
+    card.innerHTML = `
+      <div class="card-header">
+        <span class="order-name">${esc(order.name)}</span>
+        <span class="order-time">${time}</span>
+      </div>
+      ${order.membership ? `<div class="card-meta">Member #${esc(order.membership)}</div>` : ''}
+      <div class="card-items">
+        ${order.items.map(i => `
+          <div class="card-item">
+            <span class="item-name">${i.qty}× ${esc(i.name)}</span>
+            <span class="item-price">£${(i.qty * i.price).toFixed(2)}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="card-total">
+        <span>Total</span>
+        <span>£${order.total.toFixed(2)}</span>
+      </div>
+      <div class="card-actions">
+        ${prepend ? `<button class="btn-gotit" onclick="gotItOrder('${order.id}')">Got it</button>` : `<button class="btn-dismiss" onclick="dismissOrder('${order.id}')">Dismiss</button>`}
+      </div>
+    `;
+
+    if (prepend && container.firstChild) {
+      container.insertBefore(card, container.firstChild);
+    } else {
+      container.appendChild(card);
+    }
+  }
+
+  function updateEmpty() {
+    const hasOrders = orders.length > 0;
+    document.getElementById('empty-state').style.display = hasOrders ? 'none' : 'flex';
+    const c = document.getElementById('orders-container');
+    if (hasOrders) c.classList.add('has-orders');
+    else c.classList.remove('has-orders');
+  }
+
+  function gotItOrder(id) {
+    fetch('/api/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => {});
+    dismissOrder(id);
+  }
+
+  function dismissOrder(id) {
+    dismissedIds.add(id);
+    saveDismissed();
+    orders = orders.filter(o => o.id !== id);
+    saveOrders();
+    updateDayBar();
+    const el = document.getElementById('order-' + id);
+    if (el) {
+      el.style.transition = 'opacity 0.2s, transform 0.2s';
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(30px)';
+      setTimeout(() => { el.remove(); updateEmpty(); }, 220);
+    }
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── BLE printer ──
+  let btCharacteristic = null;
+
+  const BT_PROFILES = [
+    { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb', notify: '00002af0-0000-1000-8000-00805f9b34fb' },
+    { service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', notify: null },
+    { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3', notify: '49535343-1e4d-4bd9-ba61-23c647249616' },
+  ];
+
+  function dbg(msg) {
+    const el = document.getElementById('debug-log');
+    el.style.display = 'block';
+    el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function connectBluetooth() {
+    if (!navigator.bluetooth) return;
+    const dot = document.getElementById('bt-dot');
+    const btn = document.getElementById('bt-connect-btn');
+    dot.className = 'connecting';
+    btn.textContent = 'Connecting…';
+    dbg('Starting BT connect…');
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BT_PROFILES.map(p => p.service),
+      });
+      dbg('Device: ' + (device.name || 'unnamed'));
+      const server = await device.gatt.connect();
+      dbg('GATT connected');
+      device.addEventListener('gattserverdisconnected', onBtDisconnected);
+      let connected = false;
+      for (const profile of BT_PROFILES) {
+        const idx = BT_PROFILES.indexOf(profile);
+        try {
+          dbg('Trying profile ' + idx + '…');
+          const service = await server.getPrimaryService(profile.service);
+          btCharacteristic = await service.getCharacteristic(profile.char);
+          if (profile.notify) {
+            try {
+              const n = await service.getCharacteristic(profile.notify);
+              await n.startNotifications();
+              n.addEventListener('characteristicvaluechanged', e => {
+                const hex = Array.from(new Uint8Array(e.target.value.buffer)).map(b => b.toString(16).padStart(2,'0')).join(' ');
+                dbg('Notify: ' + hex);
+              });
+            } catch (e) { dbg('Notify failed: ' + e.message); }
+          }
+          connected = true;
+          dbg('Connected on profile ' + idx);
+          break;
+        } catch (e) { dbg('P' + idx + ' failed: ' + e.message); }
+      }
+      if (!connected) throw new Error('No profile matched');
+      dot.className = 'connected';
+      btn.textContent = device.name || 'Printer ✓';
+    } catch (err) {
+      dbg('Error: ' + err.message);
+      dot.className = '';
+      btn.textContent = 'Connect printer';
+      if (err.name !== 'NotFoundError') alert('Bluetooth error: ' + err.message);
+    }
+  }
+
+  function onBtDisconnected() {
+    btCharacteristic = null;
+    document.getElementById('bt-dot').className = '';
+    document.getElementById('bt-connect-btn').textContent = 'Connect printer';
+    dbg('Disconnected');
+  }
+
+  async function sendBytes(data) {
+    const CHUNK = 100;
+    for (let i = 0; i < data.length; i += CHUNK) {
+      const chunk = data.slice(i, i + CHUNK);
+      try { await btCharacteristic.writeValueWithoutResponse(chunk); }
+      catch { await btCharacteristic.writeValue(chunk); }
+      await new Promise(r => setTimeout(r, 40));
+    }
+  }
+
+  async function autoPrint(order) {
+    if (!btCharacteristic) { dbg('Print skipped — not connected'); return; }
+    dbg('Printing order ' + order.id + '…');
+    try {
+      await sendBytes(buildEscPos(order));
+      dbg('Print OK');
+    } catch (err) { dbg('Print error: ' + err.message); }
+  }
+
+  function buildEscPos(order) {
+    const W = 32;
+    const b = [];
+    const push = (...bytes) => b.push(...bytes);
+    const text = s => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
+    const line = (s = '') => { text(s); push(0x0a); };
+    const hr = (ch = '=') => line(ch.repeat(W));
+    const right = (l, r) => { const gap = W - l.length - r.length; line(l + ' '.repeat(Math.max(1, gap)) + r); };
+    push(0x1b, 0x40);
+    push(0x1b, 0x61, 0x01);
+    push(0x1b, 0x45, 0x01, 0x1b, 0x21, 0x10);
+    line('HALFWAY HOUSE');
+    push(0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00);
+    line('Bramley Golf Club');
+    push(0x1b, 0x61, 0x00);
+    hr('=');
+    line('Name:   ' + order.name.substring(0, 22));
+    if (order.membership) line('Member: ' + order.membership);
+    const t = new Date(order.timestamp);
+    line('Time:   ' + t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+    hr('-');
+    for (const item of order.items) {
+      right(`${item.qty}x ${item.name}`.substring(0, 24), `£${(item.qty * item.price).toFixed(2)}`);
+    }
+    hr('-');
+    push(0x1b, 0x45, 0x01);
+    right('TOTAL', `£${order.total.toFixed(2)}`);
+    push(0x1b, 0x45, 0x00);
+    hr('=');
+    line(); line(); line();
+    return new Uint8Array(b);
+  }
+
+  // ── Voice announcement ──
+  function announceOrder() {
+    if (!audioCtx) return;
+    // Two-tone doorbell chime
+    const notes = [880, 660];
+    notes.forEach((freq, i) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const start = audioCtx.currentTime + i * 0.25;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.5, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
+      osc.start(start);
+      osc.stop(start + 0.5);
+    });
+  }
+</script>
+</body>
+</html>

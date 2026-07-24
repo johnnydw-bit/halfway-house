@@ -258,7 +258,7 @@
     <img src="/logo.jpg" alt="Bramley Golf Club">
     <div>
       <h1>Halfway House</h1>
-      <p>Bramley Golf Club</p>
+      <p>Bramley Golf Club &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION</span></p>
     </div>
   </header>
   <div id="menu-content">
@@ -308,7 +308,6 @@
 </div>
 
 <script>
-  const channel = new BroadcastChannel('halfway-orders');
   let menu = [];
   let basket = {}; // id → qty
 
@@ -398,7 +397,14 @@
   }
 
   // ── Place order ──
-  function placeOrder() {
+  async function placeOrder() {
+    const hour = new Date().getHours();
+    const membershipVal = document.getElementById('membership-input').value.trim();
+    if (membershipVal !== '5352' && (hour < 9 || hour >= 15)) {
+      alert('Sorry, the halfway house is closed. Orders are accepted between 9am and 3pm.');
+      return;
+    }
+
     const name = document.getElementById('name-input').value.trim();
     const membership = document.getElementById('membership-input').value.trim();
     if (!name) {
@@ -422,12 +428,19 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Placing order…';
 
-    // BroadcastChannel relay to kitchen tab
-    channel.postMessage(order);
-
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(order)
+      });
+      if (!res.ok) throw new Error('Server error');
       showConfirm(order);
-    }, 600);
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+      alert('Could not send order — please try again.');
+    }
   }
 
   function showConfirm(order) {
