@@ -195,6 +195,30 @@
       color: white;
     }
     .btn-gotit:active { opacity: 0.75; }
+
+    /* ── BLE ── */
+    #bt-header { display: none; align-items: center; gap: 8px; }
+    #bt-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    #bt-dot.connected  { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    #bt-dot.connecting { background: var(--amber); animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    #bt-connect-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 8px; padding: 6px 10px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    #debug-log {
+      background: #111; color: #0f0; font-size: 11px; font-family: monospace;
+      padding: 8px 12px; word-break: break-all; white-space: pre-wrap;
+      max-height: 120px; overflow-y: auto; display: none;
+    }
+    #bt-unsupported {
+      margin: 10px 14px 0; padding: 10px 14px;
+      background: var(--red); border-radius: 8px; font-size: 13px; display: none;
+    }
   </style>
 </head>
 <body style="display:flex;flex-direction:column;min-height:100dvh">
@@ -204,11 +228,19 @@
     <img src="/logo.jpg" alt="Bramley GC">
     <div>
       <h1>Kitchen</h1>
-      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.3 iPad</span></p>
+      <p>Bramley Halfway House &nbsp;·&nbsp; <span style="color:#e74c3c;font-weight:700">PRODUCTION v2.4</span></p>
     </div>
   </div>
-  <button onclick="showModeDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer" id="mode-btn">⚙️ Mode</button>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div id="bt-header">
+      <span id="bt-dot"></span>
+      <button id="bt-connect-btn" onclick="connectBluetooth()">Connect printer</button>
+    </div>
+    <button onclick="showModeDialog()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer" id="mode-btn">⚙️ Mode</button>
+  </div>
 </header>
+<div id="bt-unsupported">⚠️ Web Bluetooth not available — use Chrome on Android for BLE printing.</div>
+<div id="debug-log"></div>
 
 <div id="day-bar">
   <span>Today: <strong id="day-orders">0</strong> orders · <strong id="day-total">£0.00</strong></span>
@@ -222,7 +254,8 @@
     <h2 style="font-size:18px;margin-bottom:10px">Kitchen Mode</h2>
     <p style="font-size:14px;color:var(--muted);margin-bottom:24px">Choose how this iPad handles orders.</p>
     <button onclick="setMode('ipad')" id="mode-ipad-btn" style="width:100%;padding:13px;margin-bottom:10px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">📱 iPad only<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Display orders on screen, no printing</span></button>
-    <button onclick="setMode('ipad+phone')" id="mode-phone-btn" style="width:100%;padding:13px;margin-bottom:20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">🖨️ iPad + Phone printer<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Send orders to phone for BLE printing</span></button>
+    <button onclick="setMode('ipad+phone')" id="mode-phone-btn" style="width:100%;padding:13px;margin-bottom:10px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">🖨️ iPad + Phone printer<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Send orders to phone for BLE printing</span></button>
+    <button onclick="setMode('android+ble')" id="mode-ble-btn" style="width:100%;padding:13px;margin-bottom:20px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:2px solid var(--border);background:var(--surface2);color:var(--text)">🤖 Android + BLE printer<br><span style="font-size:12px;font-weight:400;color:var(--muted)">Direct Bluetooth connection on this device</span></button>
     <button onclick="closeModeDialog()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer">Close</button>
   </div>
 </div>
@@ -401,16 +434,24 @@
   let kitchenMode = localStorage.getItem(MODE_KEY) || 'ipad';
 
   function updateModeBtn() {
-    document.getElementById('mode-btn').textContent = kitchenMode === 'ipad+phone' ? '🖨️ Mode' : '⚙️ Mode';
+    const labels = { 'ipad': '⚙️ Mode', 'ipad+phone': '🖨️ Mode', 'android+ble': '🤖 Mode' };
+    document.getElementById('mode-btn').textContent = labels[kitchenMode] || '⚙️ Mode';
+    const bleMode = kitchenMode === 'android+ble';
+    document.getElementById('bt-header').style.display = bleMode ? 'flex' : 'none';
+    if (bleMode && !navigator.bluetooth) {
+      document.getElementById('bt-unsupported').style.display = 'block';
+    } else {
+      document.getElementById('bt-unsupported').style.display = 'none';
+    }
   }
 
   function showModeDialog() {
-    const ipadBtn  = document.getElementById('mode-ipad-btn');
-    const phoneBtn = document.getElementById('mode-phone-btn');
     const active   = 'border:2px solid var(--brand-light);background:var(--brand);color:white';
     const inactive = 'border:2px solid var(--border);background:var(--surface2);color:var(--text)';
-    ipadBtn.style.cssText  += ';' + (kitchenMode === 'ipad'       ? active : inactive);
-    phoneBtn.style.cssText += ';' + (kitchenMode === 'ipad+phone' ? active : inactive);
+    ['ipad', 'ipad+phone', 'android+ble'].forEach(m => {
+      const ids = { 'ipad': 'mode-ipad-btn', 'ipad+phone': 'mode-phone-btn', 'android+ble': 'mode-ble-btn' };
+      document.getElementById(ids[m]).style.cssText += ';' + (kitchenMode === m ? active : inactive);
+    });
     document.getElementById('mode-dialog').style.display = 'flex';
   }
 
@@ -457,8 +498,10 @@
     updateModeBtn();
     scheduleSunsetSummary();
 
-    // Show permission dialog if notifications not yet granted
-    if (Notification.permission !== 'granted') {
+    // Show mode dialog on very first load; otherwise show notification prompt if needed
+    if (!localStorage.getItem(MODE_KEY)) {
+      showModeDialog();
+    } else if (kitchenMode !== 'android+ble' && Notification.permission !== 'granted') {
       showOsDialog();
     }
   });
@@ -471,7 +514,8 @@
     updateEmpty();
     updateDayBar();
     if (!watchMode) announceOrder(order);
-    queuePrintJob(order);
+    if (kitchenMode === 'android+ble') autoPrint(order);
+    else queuePrintJob(order);
   }
 
   // ── Render a card ──
@@ -546,6 +590,130 @@
 
   function esc(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── BLE printer ──
+  let btCharacteristic = null;
+
+  const BT_PROFILES = [
+    { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb', notify: '00002af0-0000-1000-8000-00805f9b34fb' },
+    { service: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f', notify: null },
+    { service: '49535343-fe7d-4ae5-8fa9-9fafd205e455', char: '49535343-8841-43f4-a8d4-ecbe34729bb3', notify: '49535343-1e4d-4bd9-ba61-23c647249616' },
+  ];
+
+  function dbg(msg) {
+    const el = document.getElementById('debug-log');
+    el.style.display = 'block';
+    el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  async function connectBluetooth() {
+    if (!navigator.bluetooth) return;
+    const dot = document.getElementById('bt-dot');
+    const btn = document.getElementById('bt-connect-btn');
+    dot.className = 'connecting';
+    btn.textContent = 'Connecting…';
+    dbg('Starting BT connect…');
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: BT_PROFILES.map(p => p.service),
+      });
+      dbg('Device: ' + (device.name || 'unnamed'));
+      const server = await device.gatt.connect();
+      dbg('GATT connected');
+      device.addEventListener('gattserverdisconnected', onBtDisconnected);
+      let connected = false;
+      for (const profile of BT_PROFILES) {
+        const idx = BT_PROFILES.indexOf(profile);
+        try {
+          dbg('Trying profile ' + idx + '…');
+          const service = await server.getPrimaryService(profile.service);
+          btCharacteristic = await service.getCharacteristic(profile.char);
+          if (profile.notify) {
+            try {
+              const n = await service.getCharacteristic(profile.notify);
+              await n.startNotifications();
+              n.addEventListener('characteristicvaluechanged', e => {
+                const hex = Array.from(new Uint8Array(e.target.value.buffer)).map(b => b.toString(16).padStart(2,'0')).join(' ');
+                dbg('Notify: ' + hex);
+              });
+            } catch (e) { dbg('Notify failed: ' + e.message); }
+          }
+          connected = true;
+          dbg('Connected on profile ' + idx);
+          break;
+        } catch (e) { dbg('P' + idx + ' failed: ' + e.message); }
+      }
+      if (!connected) throw new Error('No profile matched');
+      dot.className = 'connected';
+      btn.textContent = device.name || 'Printer ✓';
+    } catch (err) {
+      dbg('Error: ' + err.message);
+      dot.className = '';
+      btn.textContent = 'Connect printer';
+      if (err.name !== 'NotFoundError') alert('Bluetooth error: ' + err.message);
+    }
+  }
+
+  function onBtDisconnected() {
+    btCharacteristic = null;
+    document.getElementById('bt-dot').className = '';
+    document.getElementById('bt-connect-btn').textContent = 'Connect printer';
+    dbg('Disconnected');
+  }
+
+  async function sendBytes(data) {
+    const CHUNK = 100;
+    for (let i = 0; i < data.length; i += CHUNK) {
+      const chunk = data.slice(i, i + CHUNK);
+      try { await btCharacteristic.writeValueWithoutResponse(chunk); }
+      catch { await btCharacteristic.writeValue(chunk); }
+      await new Promise(r => setTimeout(r, 40));
+    }
+  }
+
+  async function autoPrint(order) {
+    if (!btCharacteristic) { dbg('Print skipped — not connected'); return; }
+    dbg('Printing order ' + order.id + '…');
+    try {
+      await sendBytes(buildEscPos(order));
+      dbg('Print OK');
+    } catch (err) { dbg('Print error: ' + err.message); }
+  }
+
+  function buildEscPos(order) {
+    const W = 32;
+    const b = [];
+    const push = (...bytes) => b.push(...bytes);
+    const text = s => { for (const c of s) b.push(c.charCodeAt(0) & 0x7f); };
+    const line = (s = '') => { text(s); push(0x0a); };
+    const hr = (ch = '=') => line(ch.repeat(W));
+    const right = (l, r) => { const gap = W - l.length - r.length; line(l + ' '.repeat(Math.max(1, gap)) + r); };
+    push(0x1b, 0x40);
+    push(0x1b, 0x61, 0x01);
+    push(0x1b, 0x45, 0x01, 0x1b, 0x21, 0x10);
+    line('HALFWAY HOUSE');
+    push(0x1b, 0x21, 0x00, 0x1b, 0x45, 0x00);
+    line('Bramley Golf Club');
+    push(0x1b, 0x61, 0x00);
+    hr('=');
+    line('Name:   ' + order.name.substring(0, 22));
+    if (order.membership) line('Member: ' + order.membership);
+    const t = new Date(order.timestamp);
+    line('Time:   ' + t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
+    hr('-');
+    for (const item of order.items) {
+      right(`${item.qty}x ${item.name}`.substring(0, 24), `£${(item.qty * item.price).toFixed(2)}`);
+    }
+    hr('-');
+    push(0x1b, 0x45, 0x01);
+    right('TOTAL', `£${order.total.toFixed(2)}`);
+    push(0x1b, 0x45, 0x00);
+    hr('=');
+    line(); line(); line();
+    return new Uint8Array(b);
   }
 
   // ── Voice announcement ──
