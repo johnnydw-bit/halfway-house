@@ -92,6 +92,11 @@
 
 <script>
   let btCharacteristic = null;
+  let btDevice = null;
+  let btReconnectTimer = null;
+  let btKeepAliveTimer = null;
+  let btReconnectAttempts = 0;
+  const BT_MAX_RECONNECTS = 10;
   let printedIds = new Set();
 
   const BT_PROFILES = [
@@ -120,6 +125,8 @@
         acceptAllDevices: true,
         optionalServices: BT_PROFILES.map(p => p.service),
       });
+      btDevice = device;
+      btReconnectAttempts = 0;
       dbg('Device: ' + (device.name || 'unnamed'));
       const server = await device.gatt.connect();
       dbg('GATT connected');
@@ -151,6 +158,7 @@
       if (!connected) throw new Error('No profile matched');
       setStatus((device.name || 'Printer') + ' ✓', 'connected');
       document.getElementById('test-btn').style.display = 'block';
+      startKeepAlive();
     } catch (err) {
       dbg('Error: ' + err.message);
       setStatus('Connect Printer', '');
@@ -160,9 +168,63 @@
 
   function onDisconnected() {
     btCharacteristic = null;
-    setStatus('Disconnected — tap to reconnect', '');
-    document.getElementById('test-btn').style.display = 'none';
+    stopKeepAlive();
     dbg('Disconnected');
+    if (btDevice && btReconnectAttempts < BT_MAX_RECONNECTS) {
+      btReconnectAttempts++;
+      const delay = Math.min(2000 * btReconnectAttempts, 30000);
+      setStatus(`Reconnecting (${btReconnectAttempts}/${BT_MAX_RECONNECTS})…`, 'connecting');
+      dbg(`Reconnect attempt ${btReconnectAttempts} in ${delay / 1000}s…`);
+      btReconnectTimer = setTimeout(reconnect, delay);
+    } else {
+      setStatus('Disconnected — tap to reconnect', '');
+      document.getElementById('test-btn').style.display = 'none';
+      dbg('Max reconnect attempts reached');
+    }
+  }
+
+  async function reconnect() {
+    if (!btDevice) return;
+    dbg('Reconnecting…');
+    try {
+      const server = await btDevice.gatt.connect();
+      dbg('GATT reconnected');
+      let connected = false;
+      for (const profile of BT_PROFILES) {
+        const idx = BT_PROFILES.indexOf(profile);
+        try {
+          const service = await server.getPrimaryService(profile.service);
+          btCharacteristic = await service.getCharacteristic(profile.char);
+          connected = true;
+          dbg('Reconnected on profile ' + idx);
+          break;
+        } catch (e) { dbg('P' + idx + ' failed: ' + e.message); }
+      }
+      if (!connected) throw new Error('No profile matched on reconnect');
+      btReconnectAttempts = 0;
+      setStatus((btDevice.name || 'Printer') + ' ✓', 'connected');
+      document.getElementById('test-btn').style.display = 'block';
+      startKeepAlive();
+    } catch (err) {
+      dbg('Reconnect error: ' + err.message);
+      onDisconnected();
+    }
+  }
+
+  function startKeepAlive() {
+    stopKeepAlive();
+    btKeepAliveTimer = setInterval(async () => {
+      if (!btCharacteristic) return;
+      try {
+        // ESC/POS DLE EOT 1 — printer status request, silently ignored if unsupported
+        await btCharacteristic.writeValueWithoutResponse(new Uint8Array([0x10, 0x04, 0x01]));
+      } catch { /* connection will trigger onDisconnected */ }
+    }, 30000);
+  }
+
+  function stopKeepAlive() {
+    clearInterval(btKeepAliveTimer);
+    btKeepAliveTimer = null;
   }
 
   async function sendBytes(data) {

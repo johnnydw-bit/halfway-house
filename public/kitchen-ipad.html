@@ -598,6 +598,11 @@
 
   // ── BLE printer ──
   let btCharacteristic = null;
+  let btDevice = null;
+  let btReconnectTimer = null;
+  let btKeepAliveTimer = null;
+  let btReconnectAttempts = 0;
+  const BT_MAX_RECONNECTS = 10;
 
   const BT_PROFILES = [
     { service: '000018f0-0000-1000-8000-00805f9b34fb', char: '00002af1-0000-1000-8000-00805f9b34fb', notify: '00002af0-0000-1000-8000-00805f9b34fb' },
@@ -624,6 +629,8 @@
         acceptAllDevices: true,
         optionalServices: BT_PROFILES.map(p => p.service),
       });
+      btDevice = device;
+      btReconnectAttempts = 0;
       dbg('Device: ' + (device.name || 'unnamed'));
       const server = await device.gatt.connect();
       dbg('GATT connected');
@@ -653,6 +660,7 @@
       if (!connected) throw new Error('No profile matched');
       dot.className = 'connected';
       btn.textContent = device.name || 'Printer ✓';
+      startBtKeepAlive();
     } catch (err) {
       dbg('Error: ' + err.message);
       dot.className = '';
@@ -663,9 +671,63 @@
 
   function onBtDisconnected() {
     btCharacteristic = null;
-    document.getElementById('bt-dot').className = '';
-    document.getElementById('bt-connect-btn').textContent = 'Connect printer';
+    stopBtKeepAlive();
     dbg('Disconnected');
+    if (btDevice && btReconnectAttempts < BT_MAX_RECONNECTS) {
+      btReconnectAttempts++;
+      const delay = Math.min(2000 * btReconnectAttempts, 30000);
+      document.getElementById('bt-dot').className = 'connecting';
+      document.getElementById('bt-connect-btn').textContent = `Reconnecting (${btReconnectAttempts}/${BT_MAX_RECONNECTS})…`;
+      dbg(`Reconnect attempt ${btReconnectAttempts} in ${delay / 1000}s…`);
+      btReconnectTimer = setTimeout(btReconnect, delay);
+    } else {
+      document.getElementById('bt-dot').className = '';
+      document.getElementById('bt-connect-btn').textContent = 'Connect printer';
+      dbg('Max reconnect attempts reached');
+    }
+  }
+
+  async function btReconnect() {
+    if (!btDevice) return;
+    dbg('Reconnecting…');
+    try {
+      const server = await btDevice.gatt.connect();
+      dbg('GATT reconnected');
+      let connected = false;
+      for (const profile of BT_PROFILES) {
+        const idx = BT_PROFILES.indexOf(profile);
+        try {
+          const service = await server.getPrimaryService(profile.service);
+          btCharacteristic = await service.getCharacteristic(profile.char);
+          connected = true;
+          dbg('Reconnected on profile ' + idx);
+          break;
+        } catch (e) { dbg('P' + idx + ' failed: ' + e.message); }
+      }
+      if (!connected) throw new Error('No profile matched on reconnect');
+      btReconnectAttempts = 0;
+      document.getElementById('bt-dot').className = 'connected';
+      document.getElementById('bt-connect-btn').textContent = (btDevice.name || 'Printer') + ' ✓';
+      startBtKeepAlive();
+    } catch (err) {
+      dbg('Reconnect error: ' + err.message);
+      onBtDisconnected();
+    }
+  }
+
+  function startBtKeepAlive() {
+    stopBtKeepAlive();
+    btKeepAliveTimer = setInterval(async () => {
+      if (!btCharacteristic) return;
+      try {
+        await btCharacteristic.writeValueWithoutResponse(new Uint8Array([0x10, 0x04, 0x01]));
+      } catch { /* drop triggers onBtDisconnected */ }
+    }, 30000);
+  }
+
+  function stopBtKeepAlive() {
+    clearInterval(btKeepAliveTimer);
+    btKeepAliveTimer = null;
   }
 
   async function sendBytes(data) {
